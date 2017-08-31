@@ -15,7 +15,9 @@ Where:
 
      G: Lead field matrix which project brain activity into sensor space.
 
-     J_{t-i}: Brain activity (distributed source model with fixed position) at time t-i 
+     J_{t-i}: Brain activity (distributed source model with fixed position) at time t-i.
+
+     alpha (>0): the regularization parameter.
 # Requirements
 1-MATIO
 
@@ -57,7 +59,23 @@ More details about the package input parameters can be obtained by:
 
 ./iSDR_p --help (-h).
 
+The first argument of ./iSDR_p is a .mat file containing the following:
+    
+    M: measurements.
+ 
+    G: Lead field matrix.
 
+    GA: lead field matrix times initial values of A_i's, i=1,..,p i.e. GA = [GA1,..,GAp].
+
+    SC: structural connectivity matrix (symmetric).
+
+    n_c: size of sensor space.
+
+    n_t: number of measurements samples.
+
+    n_s: size of source space.
+
+    m_p: order of MVAR.
 
 # Example
 An example of iSDR can be obtained by the running the following:
