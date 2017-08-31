@@ -6,13 +6,18 @@ iSDR_p is a c++ package for solving the EEG/MEG inverse problem using structural
 on the causality between brain regions/sources.
 
 # Requirements
-1-matio(>=2.6.0)
+1-MATIO
 
-2-hdf5(>=0.17.1)
+2-HDF5
 
-3-numpy(>=1.11.3)
+3-flens
 
-4-nibabel(>=2.1.0)
+4-MKL intel
+
+5- BLAS
+
+6- LAPACK
+
 
 # Cite
 
