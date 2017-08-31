@@ -4,6 +4,9 @@ A solver of EEG/MEG inverse problem using a multivariate auto-regressive model o
 
 iSDR_p is a c++ package for solving the EEG/MEG inverse problem using structural/functional prior 
 on the causality between brain regions/sources.
+iSDR_p solve the following functional:
+
+\sum_t||M_t-G\sum_iA_iJ_{t-i}||_2^2+\alpha ||J||_{21}.
 
 # Requirements
 1-MATIO
@@ -45,6 +48,8 @@ make
 More details about the package input parameters can be obtained by:
 
 ./iSDR_p --help (-h).
+
+
 
 # Example
 An example of iSDR can be obtained by the running the following:
