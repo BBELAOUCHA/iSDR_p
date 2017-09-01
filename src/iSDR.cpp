@@ -40,7 +40,7 @@
 
 iSDR::iSDR(int n_sources, int n_sensors, int Mar_model, int n_samples,
            double alpha, double n_iter_mxne, double n_iter_iSDR, double d_w_tol, 
-           double mar_th){
+           double mar_th, bool ver){
     this-> n_t = n_samples;
     this-> n_c = n_sensors;
     this-> n_s = n_sources;
@@ -51,6 +51,7 @@ iSDR::iSDR(int n_sources, int n_sensors, int Mar_model, int n_samples,
     this-> n_isdr = n_iter_iSDR;
     this-> d_w_tol= d_w_tol;
     this-> mar_th = mar_th;
+    this-> verbose = ver;
     return;
 }
 iSDR::~iSDR() { }
@@ -67,7 +68,7 @@ void iSDR::Reorder_G(const double *GA, double *G_reorder){
                 G_reorder[i + (y*m_p + x)* n_c] = GA[i + (y + x*n_s)*n_c];
 }
 
-void iSDR::Reduce_G(double * G, double *G_n, std::vector<int> ind){
+void iSDR::Reduce_G(const double * G, double *G_n, std::vector<int> ind){
     // n_s_i number of active sources
     // G (n_c x n_s)   ----->  G_n (n_c x n_s_i)
     // Input:
@@ -77,13 +78,14 @@ void iSDR::Reduce_G(double * G, double *G_n, std::vector<int> ind){
     //        G_n (n_c x n_s_i): gain matrix columns that correspends to active
     //                           sources.
     //        ind (1xn_s_i): vector containing label of active sources
+    //#pragma omp parallel for
     for (unsigned int i=0;i<ind.size(); ++i){
         int x = ind[i];
         cxxblas::copy(n_c, &G[x*n_c], 1, &G_n[i*n_c], 1);
     }
 }
 
-void iSDR::Reduce_SC(int * SC, int *SC_n, std::vector<int> ind){
+void iSDR::Reduce_SC(const int * SC, int *SC_n, std::vector<int> ind){
     // reduce the strucural connectivity matrix by considering only active
     // sources
     // Input:
@@ -91,6 +93,7 @@ void iSDR::Reduce_SC(int * SC, int *SC_n, std::vector<int> ind){
     // Output:
     //       SC_n (n_s_i x n_s_i): reduced structural connectivity matrix
     //       ind (1 x n_s_i): vector containing active sources.
+    //#pragma omp parallel for
     for (unsigned int i=0;i<ind.size(); ++i){
         int x = ind[i];
         for (unsigned int j=0;j<ind.size(); ++j){
@@ -112,7 +115,7 @@ void iSDR::G_times_A(const double * G, const double *A, double *GA_reorder){
     using namespace flens;
     typedef GeMatrix<FullStorage<double, ColMajor> > GeMatrix;
     GeMatrix GA(n_c, n_s);
-
+    //#pragma omp parallel for
     for (int i = 0 ;i< m_p; i++){
         cxxblas::gemm(cxxblas::ColMajor, cxxblas::NoTrans, cxxblas::NoTrans, n_c,
         n_s, n_s, 1.0, &G[0], n_c, &A[i*n_s*n_s], n_s, 0.0, &GA.data()[0], n_c);    
@@ -122,7 +125,7 @@ void iSDR::G_times_A(const double * G, const double *A, double *GA_reorder){
     }
 }
 
-void iSDR::A_step_lsq( double * S, int * A_scon, double tol, double * VAR){
+void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol, double * VAR){
     // Compute the MVAR coeficients of only active sources using least square 
     // Input:
     //       S (n_t_sxn_s): matrix containing the activation of sources (n_s)
@@ -140,8 +143,9 @@ void iSDR::A_step_lsq( double * S, int * A_scon, double tol, double * VAR){
     const Underscore<IndexType>  _;
 
     int n_x = n_t_s - m_p;
-    DenseVector b(n_x);
+    //#pragma omp parallel for
     for (int i =0;i < n_s; ++i){
+        DenseVector b(n_x);
         std::vector<int> ind_X;
         for (int j=0; j < n_s; ++j){
             if (A_scon[i*n_s + j] != 0.0)
@@ -191,13 +195,15 @@ std::vector<int> iSDR::Zero_non_zero(const double * S){
 }
 
 int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
-                     double * J, double * Acoef, double * Active){
+                     double * J, double * Acoef, double * Active,bool initial){
     // Core function to compute iteratively the MxNE and MVAR coefficients.
     // Input:
     //       G_o (n_c x n_s): gain matrix M = G_o x J
     //       SC (n_s x n_s): structural connectivity between sources.
     //       M (n_c x n_t): EEG/MEG measurements.
     //       G (n_c x (n_s x m_p)): initial Gx[A1,..,Ap]
+    //       initial (boolean): if true use precomputed J as initialization
+    //                                to compute the residual of MxNE
     // Output:
     //        J (n_t_s x n_s): the brain activity estimated by iSDR.
     //        Acoef (n_s x (n_s x m_p)): MVAR coefficients
@@ -214,33 +220,36 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
     GA_reorder = new double [n_c*n_s*m_p];
     double * G_reorder_ptr = &GA_reorder[0];
     Reorder_G(G_ptr, G_reorder_ptr);// reorder gain matrix
-    double *J_ptr = &J[0];
+    double *J_ptr = J;
     int *SC_ptr = &SC[0];
     int *SC_n = new int [n_s*n_s];
     double * G_tmp = new double [n_c*n_s];
     double * MVAR;
     MVAR = new double [n_s * n_s * m_p];
+    MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, verbose);
     for (int ii = 0; ii < n_isdr; ++ii){
         v2.clear();
-        MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol);
         double dual_gap_= 0.0;
         double tol = 0.0;
-        _MxNE.MxNE_solve(M_ptr, G_reorder_ptr, &J[0], alpha, n_mxne, dual_gap_,
-                        tol);
+        _MxNE.MxNE_solve(M_ptr, G_reorder_ptr, J_ptr, alpha, n_mxne, dual_gap_,
+                        tol, initial);
         std::vector<int> ind_x;
         ind_x = Zero_non_zero(J_ptr);
         int n_s_x = ind_x.size();
         for (int i=0; i < n_s_x;i++)
             v2.push_back(v1[ind_x[i]]);
         v1 = v2;
+        _MxNE.n_s = n_s_x;
         if (n_s != n_s_x && n_s_x > 0){
+            //#pragma omp parallel for
             for(int i = 0;i < n_s_x; ++i){
-                cxxblas::copy(n_t_s, &J[n_t_s*ind_x[i]], 1, &J[i*n_t_s], 1);
-                if (i != ind_x[i])
-                    std::fill(&J[n_t_s*ind_x[i]], &J[n_t_s*(ind_x[i]+1)], 0.0);   
+                if (i != ind_x[i]){
+                    int ix = n_t_s*ind_x[i];
+                    cxxblas::copy(n_t_s, J_ptr + ix, 1, J_ptr+i*n_t_s, 1);
+                    std::fill(J_ptr + ix, J_ptr+ n_t_s + ix, 0.0);
+                }
             }
             G_tmp = new double [n_c*n_s_x];
-            //std::fill(&G_tmp[0], &G_tmp[n_s_x*n_c], 0.0);
             Reduce_G(G_ptr_o, &G_tmp[0], ind_x);
             G_ptr_o = &G_tmp[0];
             SC_n = new int [n_s_x*n_s_x];
@@ -248,23 +257,22 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
             SC_ptr = &SC_n[0];
             n_s = n_s_x;
             MVAR = new double [n_s * n_s * m_p];
-            //std::fill(&MVAR[0], &MVAR[n_s*n_s*m_p], 0.0);
-            A_step_lsq(&J[0], &SC_n[0], mar_th, MVAR); 
+            A_step_lsq(J_ptr, &SC_n[0], mar_th, MVAR); 
             G_reorder_ptr = new double [n_c*n_s*m_p];
-            //double coef = Scale_MVAR(MVAR);
-            //cxxblas::scal(n_s*n_s*m_p, 1.0/coef, &MVAR[0], 1);
-            G_times_A(&G_tmp[0], MVAR, G_reorder_ptr);
+            G_times_A(G_ptr_o, MVAR, G_reorder_ptr);
             for (int i = 0;i < n_s*n_s*m_p; i++)
                 Acoef[i] = MVAR[i];
             for (int i = 0;i < n_s; i++)
                 Active[i] = v1[i];
         }
-        else{
-            printf("Same active set (%d) is detected in 2 successive iterations.\n", n_s);
+        else if (n_s_x > 0){
+            if (verbose)
+                printf("Same active set (%d) is detected in 2 successive iterations.\n", n_s);
             break;
         }
-        if (n_s == 0){
-            printf("No active source. You may decrease alpha = %f \n", alpha);
+        else {
+            if (verbose)
+                printf("No active source. You may decrease alpha = %f \n", alpha);
             break;
         }
     }

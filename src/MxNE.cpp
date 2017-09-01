@@ -34,13 +34,14 @@
 ////============================================================================
 
 MxNE::MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
-           double d_w_tol){
+           double d_w_tol, bool ver){
     this-> n_t = n_samples;
     this-> n_c = n_sensors;
     this-> n_s = n_sources;
     this-> m_p = Mar_model;
     this-> n_t_s = n_t + m_p - 1;
     this-> d_w_tol= d_w_tol;
+    this-> verbose = ver;
 }
 
 MxNE::~MxNE(){}
@@ -57,7 +58,8 @@ double MxNE::absmax(const double *X) const {
 
 void MxNE::Compute_mu(const double *G, double *mu) const {
     // compute the gradient step mu for each block coordinate i.e. Source
-    // mu = ||G_s||_F 
+    // mu = ||G_s||_F
+    //#pragma omp parallel for
     for(int i = 0;i < n_s; ++i)
         cxxblas::nrm2(n_c*m_p, &G[i*m_p*n_c], 1, mu[i]);
 }
@@ -81,6 +83,7 @@ void MxNE::update_r(const double *G_reorder, double *R,const double *dX,
     // recompute the residual for each updated source, s, activation 
     // R = R + G_s * (X^{i-1} - X^i) = R = R - G_s * ( X^i - X^{i-1})
     const int x_n = n_source * n_c * m_p;
+    //#pragma omp parallel for
     for (int j = 0; j < n_t; ++j){
         double* Rj = &R[j*n_c];
         const double* Gp = &G_reorder[x_n];
@@ -97,6 +100,7 @@ void MxNE::Compute_GtR(const double *G, const double * R, double *GtR)const{
     //         R (n_c x n_t): residual matrix (M-GJ)
     //   Output:
     //          GtR : ((n_t x m_p) x n_s)
+    //#pragma omp parallel for
     for(int i=0;i<n_s; ++i)
         cxxblas::gemm(cxxblas::ColMajor,cxxblas::Trans, cxxblas::NoTrans, n_t,
         m_p, n_c, 1.0, &R[0], n_c, &G[i*m_p*n_c], n_c, 0.0, &GtR[i*m_p*n_t],
@@ -143,7 +147,7 @@ double MxNE::duality_gap(const double* G,const double *M, double *R,
 
 int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
                      double alpha, int n_iter, double &dual_gap_,
-                     double &tol) const {
+                     double &tol, bool initial) const {
     // Compute the mixed norm estimate i.e.
     // Objective F(X) = \sum_{t=1-T}||M_t-sum_i{1-p} G_i X_{t-i}|| +
     //                                                         alpha ||X||_{21}
@@ -151,12 +155,25 @@ int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
     double *R = new double [n_c*n_t];
     double *mu = new double [n_s];
     double n_x;
+    if (not initial)
+        std::fill(&J[0], &J[n_t_s*n_s], 0.0);
     cxxblas::nrm2(n_t * n_c, &M[0], 1, n_x);
     cxxblas::copy(n_t * n_c, &M[0], 1, &R[0], 1);// initialize Residual R = M-0
     Compute_mu(&G_reorder[0], &mu[0]);
     tol = d_w_tol*n_x*n_x;
     dual_gap_ = 0.0;
-    std::fill(&J[0], &J[n_t_s*n_s], 0.0);
+    if (not initial)
+        std::fill(&J[0], &J[n_t_s*n_s], 0.0);
+    else {
+        for (int k=0;k<n_t;k++){
+            double * Rj = &R[k*n_c];
+            for (int j=0;j<n_s;j++){
+                cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans,
+                cxxblas::NoTrans, n_c, 1, m_p, -1.0, &G_reorder[j*n_c*m_p],
+                n_c, &J[j*n_t_s + k], m_p, 1.0, Rj, n_c);
+            }
+        }
+    }
     int j;
     for (j = 0; j <n_iter; ++j){
         w_max = 0.0;
@@ -164,8 +181,8 @@ int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
         for (int i = 0; i < n_s; ++i){
             double dX[n_t_s];
             double wii[n_t_s];
-            double* Ji = &J[0] + i*n_t_s;
-            std::fill(&dX[0],&dX[n_t_s],0.0);
+            double* Ji = &J[i*n_t_s];
+            std::fill(&dX[0], &dX[n_t_s], 0.0);
             cxxblas::copy(n_t_s, Ji, 1, &wii[0], 1);
             Compute_dX(&G_reorder[0], &R[0], &dX[0], i);
             cxxblas::axpy(n_t_s, mu[i], &dX[0], 1, Ji, 1);
@@ -192,10 +209,12 @@ int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
                 break;
         }
     }
-    if (dual_gap_ > tol){
-        printf( "\n Objective did not converge, you might want to increase");
-        printf("\n the number of iterations (%d)", n_iter);
-        printf( "\n Duality gap = %f | tol = %f \n", dual_gap_, tol);
+    if (verbose){
+        if (dual_gap_ > tol){
+            printf( "\n Objective did not converge, you might want to increase");
+            printf("\n the number of iterations (%d)", n_iter);
+            printf( "\n Duality gap = %f | tol = %f \n", dual_gap_, tol);
+        }
     }
     return j+1;
 }
