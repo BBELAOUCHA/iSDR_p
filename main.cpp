@@ -13,7 +13,7 @@ using namespace flens;
 using namespace std;
 
 void explain_para(){
-    printf( " ./iSDR  arg1 arg2 arg3 arg4 arg5 arg6\n");
+    printf( " ./iSDR  arg1 arg2 arg3 arg4\n");
     printf( "      arg1 : path to mat file which includes MEG/EEG, G, GA\n");
     printf( "      arg2 : value of regularization parameter. \n");
     printf( "      arg3 : tolerance to stop MxNE. \n");
@@ -23,7 +23,7 @@ void explain_para(){
 void printHelp(){
     printf("\n--help or -h of the iterative source and dynamics reconstruction algorithm.\n");
     printf(" This code uses MEG and/or EEG data to reconstruct brin acitivity.\n");
-    printf(" The actual version of the code needs 6 inputs:\n");
+    printf(" The actual version of the code needs 4 inputs:\n");
     explain_para();
 }
 
@@ -41,6 +41,7 @@ int main(int argc, char* argv[]){
         return 1;
     }
     else{
+        bool verbose = false;
         int n_c = 306;
         int n_s = 600;
         int m_p = 3;
@@ -48,7 +49,7 @@ int main(int argc, char* argv[]){
         int n_t = 297;
         alpha = atof(argv[2]);
         int n_iter_mxne = 10000;
-        int n_iter_iSDR = 10;
+        int n_iter_iSDR = 2;
         double d_w_tol=atof(argv[3]);
         const char *file_path = argv[1];
         std::cout<< "Reading file: "<< file_path<<std::endl;
@@ -61,13 +62,15 @@ int main(int argc, char* argv[]){
         m_p = _RWMat.m_p;
         n_t = _RWMat.n_t;
         n_t_s = _RWMat.n_t_s;
-        printf(" N of sensors %d\n", n_c);
-        printf(" N of sources %d\n", n_s);
-        printf(" N of samples %d\n", n_t);
-        printf(" MAR model    %d\n", m_p);
-        printf(" iSDR alpha   %.6f\n", alpha);
         alpha *=n_c;
-        cout<<"iSDR (p : = "<< m_p<< ") with alpha : = "<<alpha<<endl;;
+        if (verbose){
+            printf(" N of sensors %d\n", n_c);
+            printf(" N of sources %d\n", n_s);
+            printf(" N of samples %d\n", n_t);
+            printf(" MAR model    %d\n", m_p);
+            printf(" iSDR alpha   %.6f\n", alpha);
+            cout<<"iSDR (p : = "<< m_p<< ") with alpha : = "<<alpha<<endl;
+        }
         double *G_o = new double [n_c*n_s];
         double *GA_initial = new double [n_c*n_s*m_p];
         double *M = new double [n_c*n_t];
@@ -83,8 +86,10 @@ int main(int argc, char* argv[]){
             double *Acoef= new double [n_s*n_s*m_p];
             double *Active= new double [n_s];
             _RWMat.ReadData(file_path, G_o, GA_initial, M, SC);
-            iSDR _iSDR(n_s, n_c, m_p, n_t, alpha, n_iter_mxne, n_iter_iSDR, d_w_tol, 0.001);
-            n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, &Acoef[0], &Active[0]);
+            iSDR _iSDR(n_s, n_c, m_p, n_t, alpha, n_iter_mxne, n_iter_iSDR,
+            d_w_tol, 0.001, verbose);
+            n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, &Acoef[0],
+            &Active[0], true);
             ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
             const char *save_path = argv[4];
             _RWMat.WriteData(save_path, &J[0], &Acoef[0], &Active[0]);
