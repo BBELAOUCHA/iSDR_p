@@ -50,7 +50,7 @@
 ////============================================================================
 
 class iSDR {
-private:
+    private:
         int n_t;
         int n_c;
         int m_p;
@@ -60,18 +60,22 @@ private:
         double n_mxne;
         double n_isdr;
         double d_w_tol;
-public:
+        bool verbose;
+    public:
+        std::vector<double> Re {0,0,0};
         int n_s;
         iSDR(int n_s, int n_c, int n_t, int p, double alpha, double n_iter_mxne,
-            double n_iter_iSDR, double d_w_tol, double mar_th);
+            double n_iter_iSDR, double d_w_tol, double mar_th, bool ver);
         ~iSDR();
         int iSDR_solve(double *G_o, int *SC, const double *M, double *G,
-        double * J, double * Acoef, double * Active);
-        void Reorder_G(const double *GA, double *G_reorder);
-        void Reduce_G(double * G, double *G_n, std::vector<int> ind);
-        void G_times_A(const double * G, const double *A, double *GA_reorder);
-        void Reduce_SC(int * SC, int *SC_n, std::vector<int> ind);
-        void A_step_lsq( double * S,  int * A_scon, double tol, double * VAR);
-        std::vector<int> Zero_non_zero(const double * S);
-        double Scale_MVAR(const double * MVAR);
+        double * J, double * Acoef, int * Active, bool initial);
+        void Reorder_G(const double *GA, double *G_reorder)const;
+        void Reduce_G(const double * G, double *G_n, std::vector<int> ind)const;
+        void G_times_A(const double * G, const double *A, double *GA_reorder)
+                    const;
+        void Reduce_SC(const int * SC, int *SC_n, std::vector<int> ind)const;
+        void A_step_lsq(const double * S,const  int * A_scon,const double tol,
+                    double * VAR)const;
+        std::vector<int> Zero_non_zero(const double * S)const;
+        double Eigen_CompanionMatrix(const double * MVAR)const;
 };

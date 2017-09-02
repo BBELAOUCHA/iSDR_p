@@ -27,6 +27,14 @@ void printHelp(){
     explain_para();
 }
 
+void print_param(int n_s, int n_t, int n_c, int m_p, double alpha){
+    printf(" N of sensors %d\n", n_c);
+    printf(" N of sources %d\n", n_s);
+    printf(" N of samples %d\n", n_t);
+    printf(" MAR model    %d\n", m_p);
+    printf(" iSDR alpha   %.6f\n", alpha);
+    printf(" iSDR (p : =  %d with alpha : = %.6f\n", m_p, alpha);
+}
 
 int main(int argc, char* argv[]){
     std::string str1 ("-h");
@@ -49,10 +57,9 @@ int main(int argc, char* argv[]){
         int n_t = 297;
         alpha = atof(argv[2]);
         int n_iter_mxne = 10000;
-        int n_iter_iSDR = 2;
+        int n_iter_iSDR = 10;
         double d_w_tol=atof(argv[3]);
         const char *file_path = argv[1];
-        std::cout<< "Reading file: "<< file_path<<std::endl;
 
         int n_t_s = n_t + m_p - 1;
         ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
@@ -64,12 +71,8 @@ int main(int argc, char* argv[]){
         n_t_s = _RWMat.n_t_s;
         alpha *=n_c;
         if (verbose){
-            printf(" N of sensors %d\n", n_c);
-            printf(" N of sources %d\n", n_s);
-            printf(" N of samples %d\n", n_t);
-            printf(" MAR model    %d\n", m_p);
-            printf(" iSDR alpha   %.6f\n", alpha);
-            cout<<"iSDR (p : = "<< m_p<< ") with alpha : = "<<alpha<<endl;
+            print_param(n_s, n_t, n_c, m_p, alpha);
+            std::cout<< "Reading file: "<< file_path<<std::endl;
         }
         double *G_o = new double [n_c*n_s];
         double *GA_initial = new double [n_c*n_s*m_p];
@@ -84,10 +87,11 @@ int main(int argc, char* argv[]){
             double *J= new double [n_s*n_t_s];
             std::fill(&J[0],&J[n_t_s*n_s], 0.0);
             double *Acoef= new double [n_s*n_s*m_p];
-            double *Active= new double [n_s];
+            int *Active= new int [n_s];
             _RWMat.ReadData(file_path, G_o, GA_initial, M, SC);
+            double mvar_th = 1e-3;
             iSDR _iSDR(n_s, n_c, m_p, n_t, alpha, n_iter_mxne, n_iter_iSDR,
-            d_w_tol, 0.001, verbose);
+            d_w_tol, mvar_th, verbose);
             n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, &Acoef[0],
             &Active[0], true);
             ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);

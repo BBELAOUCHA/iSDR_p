@@ -52,10 +52,11 @@ iSDR::iSDR(int n_sources, int n_sensors, int Mar_model, int n_samples,
     this-> d_w_tol= d_w_tol;
     this-> mar_th = mar_th;
     this-> verbose = ver;
+    std::vector<double> Re {0,0,0};
     return;
 }
 iSDR::~iSDR() { }
-void iSDR::Reorder_G(const double *GA, double *G_reorder){
+void iSDR::Reorder_G(const double *GA, double *G_reorder)const{
     // reorder GxA from [GxA1,..,GxAp] to [GA1|s=1,..,GAp|s=1, .., GA1|s=n,..,
     //                                                                  GAp|s=n]
     // Input:
@@ -68,7 +69,7 @@ void iSDR::Reorder_G(const double *GA, double *G_reorder){
                 G_reorder[i + (y*m_p + x)* n_c] = GA[i + (y + x*n_s)*n_c];
 }
 
-void iSDR::Reduce_G(const double * G, double *G_n, std::vector<int> ind){
+void iSDR::Reduce_G(const double * G, double *G_n, std::vector<int> ind)const{
     // n_s_i number of active sources
     // G (n_c x n_s)   ----->  G_n (n_c x n_s_i)
     // Input:
@@ -85,7 +86,7 @@ void iSDR::Reduce_G(const double * G, double *G_n, std::vector<int> ind){
     }
 }
 
-void iSDR::Reduce_SC(const int * SC, int *SC_n, std::vector<int> ind){
+void iSDR::Reduce_SC(const int * SC, int *SC_n, std::vector<int> ind)const{
     // reduce the strucural connectivity matrix by considering only active
     // sources
     // Input:
@@ -103,7 +104,8 @@ void iSDR::Reduce_SC(const int * SC, int *SC_n, std::vector<int> ind){
     }
 }
 
-void iSDR::G_times_A(const double * G, const double *A, double *GA_reorder){
+void iSDR::G_times_A(const double * G, const double *A, double *GA_reorder)
+                    const{
     // compute Gx[A1,..,Ap] and then reorder it to:
     // [GA1|s=1,..,GAp|s=1, .., GA1|s=n,..,GAp|s=n]
     // Input:
@@ -125,7 +127,8 @@ void iSDR::G_times_A(const double * G, const double *A, double *GA_reorder){
     }
 }
 
-void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol, double * VAR){
+void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
+                    double * VAR)const{
     // Compute the MVAR coeficients of only active sources using least square 
     // Input:
     //       S (n_t_sxn_s): matrix containing the activation of sources (n_s)
@@ -176,7 +179,7 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol, doub
     }
 }
 
-std::vector<int> iSDR::Zero_non_zero(const double * S){
+std::vector<int> iSDR::Zero_non_zero(const double * S)const{
     // Get active sources
     // Input:
     //       S (n_t_s x n_s): the matrix containg brain activity.
@@ -195,7 +198,7 @@ std::vector<int> iSDR::Zero_non_zero(const double * S){
 }
 
 int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
-                     double * J, double * Acoef, double * Active,bool initial){
+                     double * J, double * Acoef, int * Active,bool initial){
     // Core function to compute iteratively the MxNE and MVAR coefficients.
     // Input:
     //       G_o (n_c x n_s): gain matrix M = G_o x J
@@ -208,7 +211,6 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
     //        J (n_t_s x n_s): the brain activity estimated by iSDR.
     //        Acoef (n_s x (n_s x m_p)): MVAR coefficients
     //        Active (1 x n_s): label of only active sources
-
     std::vector<int> v1;
     for (int i=0;i<n_s; ++i)
         v1.push_back(i);
@@ -240,6 +242,9 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
             v2.push_back(v1[ind_x[i]]);
         v1 = v2;
         _MxNE.n_s = n_s_x;
+        Re[2] = dual_gap_;
+        Re[1] = ii;
+        Re[0] = n_s_x;
         if (n_s != n_s_x && n_s_x > 0){
             //#pragma omp parallel for
             for(int i = 0;i < n_s_x; ++i){
@@ -279,7 +284,7 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
    return n_s; 
 }
 
-double iSDR::Scale_MVAR(const double * MVAR) {
+double iSDR::Eigen_CompanionMatrix(const double * MVAR) const{
     int n = n_s*n_s;
     using namespace flens;
     using namespace std;

@@ -35,7 +35,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
     matfp = Mat_Open(file_path, MAT_ACC_RDONLY);
     matvar = Mat_VarRead(matfp, "GA") ;
     const double *xData = static_cast<const double*>(matvar->data) ;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(long unsigned int y = 0;y < n_s*m_p; ++y){
         for (long unsigned int x = 0; x < n_c; ++x)
             GA[x + y*n_c] = xData[x + y*n_c]; 
@@ -44,7 +44,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
     Mat_VarFree(matvar);
     matvar = Mat_VarRead(matfp, "M") ;
     const double *xData1 = static_cast<const double*>(matvar->data) ;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(long unsigned int y = 0;y < n_t; ++y){
         for (long unsigned int x = 0; x < n_c; ++x)
             R[x + y*n_c] = xData1[x+y*n_c];
@@ -52,7 +52,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
 
     matvar = Mat_VarRead(matfp, "G") ;
     const double *xData_ = static_cast<const double*>(matvar->data) ;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(long unsigned int y = 0;y < n_s; ++y){
         for (long unsigned int x = 0; x < n_c; ++x)
             G_o[x + y*n_c] = xData_[x+y*n_c];
@@ -60,7 +60,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
     
     matvar = Mat_VarRead(matfp, "SC") ;
     const double *xData2 = static_cast<const double*>(matvar->data) ;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(long unsigned int y = 0;y < n_s; y++){
         for (long unsigned int x = 0; x < n_s; x++)
             SC[x*n_s + y] = (int)xData2[x*n_s+y];
@@ -76,17 +76,17 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
 
 
 int ReadWriteMat::WriteData(const char *file_path, double *S, double *mvar,
-                            double *A){
+                            int *A){
     double mat1[n_s][n_t_s];
     double mat2[n_s*m_p][n_s];
     double mat3[1][n_s];
     unsigned int i, j;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(j=0;j<n_s;j++){
         for(i=0;i<n_t_s;i++)
             mat1[j][i] = S[n_t_s*j+i];
     }
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(i=0;i<n_s * m_p;i++)
         for(j=0;j<n_s;j++)
             mat2[i][j] = mvar[j + m_p*i];

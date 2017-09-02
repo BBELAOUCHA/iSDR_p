@@ -41,22 +41,20 @@
 ////============================================================================
 
 class MxNE {
-private:
-
+    private:
         int n_t;
         int n_c;
         int n_t_s;
         int m_p;
         double d_w_tol;
-
-        
-public:
+        bool verbose;
+    public:
         MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
-             double d_w_tol);
+             double d_w_tol, bool ver);
         ~MxNE();
         int n_s;
-        int MxNE_solve(const double *M, double *G_reorder, double *J,
-        double alpha, int n_iter, double &dual_gap_, double &tol) const;
+        int MxNE_solve(const double *M, double *G_reorder, double *J, double
+        alpha, int n_iter, double &dual_gap_, double &tol,bool initial) const;
         void Compute_dX(const double *G_ptr,const double *R_ptr, double *X,
         const int n_source) const;
         void Compute_mu(const double *G, double *mu) const;

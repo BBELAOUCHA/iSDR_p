@@ -34,6 +34,6 @@ public:
         void ReadData(const char *file_path, double *G_o, double *G, double *R, 
                        int * SC) const;
         int WriteData(const char *file_path, double *S, double *mvar,
-                            double *A);
+                            int *A);
         void Read_parameters(const char *file_path);
 };
