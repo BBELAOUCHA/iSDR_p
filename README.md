@@ -6,7 +6,7 @@ iSDR_p is a c++ package for solving the EEG/MEG inverse problem using structural
 on the causality between brain regions/sources.
 iSDR_p solve the following functional:
 
-\sum_t ||M_t-G \sum_i A_i J_{t-i}||_2^2+\alpha ||J||_{21}.
+$\sum_t ||M_t-G \sum_i A_i J_{t-i}||_2^2+\alpha ||J||_{21}$.
 
 Where: 
      A_i: i=1,..,p are the matrices of the MVAR model of order p.
