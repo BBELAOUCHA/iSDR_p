@@ -8,23 +8,21 @@ iSDR_p solve the following functional:
 
 <img src="http://latex.codecogs.com/gif.latex?\Large&space;U(J)&space;=&space;\sum_{t=p}^T||M_t-G\sum_{i=1}^pA_iJ_{t-i}||_{2}^2&plus;\alpha&space;||J||_{21}" title="\Large U(J) = \sum_{t=p}^T||M_t-G\sum_{i=1}^pA_iJ_{t-i}||_{2}^2+\alpha ||J||_{21}" />
 
-\[\Large U(J) = \sum_{t=p}^T||M_t-G\sum_{i=1}^pA_iJ_{t-i}||_{2}^2+\alpha ||J||_{21}\]
+to obtain the brain activity with an initial MAR model A_i's. Then, brain regions/sources interactions are obtained by optimizing the following cost function:
 
 <a href="http://www.codecogs.com/eqnedit.php?latex=\Large&space;L(A)&space;=&space;\sum_{t=1}^{T-1}||J_t-\sum_{i=1}^pA_iJ_{t-i}||_{2}^2" target="_blank"><img src="http://latex.codecogs.com/gif.latex?\Large&space;L(A)&space;=&space;\sum_{t=1}^{T-1}||J_t-\sum_{i=1}^pA_iJ_{t-i}||_{2}^2" title="\Large L(A) = \sum_{t=1}^{T-1}||J_t-\sum_{i=1}^pA_iJ_{t-i}||_{2}^2" /></a>
 
 
-$\sum_t ||M_t-G \sum_i A_i J_{t-i}||_2^2+\alpha ||J||_{21}$.
-
 Where: 
-     A_i: i=1,..,p are the matrices of the MVAR model of order p.
+     * A_i: i=1,..,p are the matrices of the MVAR model of order p.
 
-     M_t: EEG or/and MEG measurements at time t.
+     * M_t: EEG or/and MEG measurements at time t.
 
-     G: Lead field matrix which project brain activity into sensor space.
+     * G: Lead field matrix which project brain activity into sensor space.
 
-     J_{t-i}: Brain activity (distributed source model with fixed position) at time t-i.
+     * J_{t-i}: Brain activity (distributed source model with fixed position) at time t-i.
 
-     alpha (>0): the regularization parameter.
+     * alpha (>0): the regularization parameter.
 # Requirements
 1-MATIO
 
@@ -57,9 +55,10 @@ United States. 2016.
 Belaoucha Brahim 
 
 # Installation
-first modify the makefile to include the different folders of the required packages
+first modify the makefile to include the different folders of the required packages. Then compile the package:
 
-make 
+
+     make 
 
 # Details
 More details about the package input parameters can be obtained by:
@@ -68,21 +67,21 @@ More details about the package input parameters can be obtained by:
 
 The first argument of ./iSDR_p is a .mat file containing the following:
     
-    M: measurements.
+    * M: measurements.
  
-    G: Lead field matrix.
+    * G: Lead field matrix.
 
-    GA: lead field matrix times initial values of A_i's, i=1,..,p i.e. GA = [GA1,..,GAp].
+    * GA: lead field matrix times initial values of A_i's, i=1,..,p i.e. GA = [GA1,..,GAp].
 
-    SC: structural connectivity matrix (symmetric).
+    * SC: structural connectivity matrix (symmetric).
 
-    n_c: size of sensor space.
+    * n_c: size of sensor space.
 
-    n_t: number of measurements samples.
+    * n_t: number of measurements samples.
 
-    n_s: size of source space.
+    * n_s: size of source space.
 
-    m_p: order of MVAR.
+    * m_p: order of MVAR.
 
 # Example
 An example of iSDR can be obtained by the running the following:
