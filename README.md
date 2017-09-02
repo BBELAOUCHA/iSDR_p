@@ -14,6 +14,7 @@ to obtain the brain activity with an initial MAR model A_i's. Then, brain region
 
 
 Where: 
+
      * A_i: i=1,..,p are the matrices of the MVAR model of order p.
 
      * M_t: EEG or/and MEG measurements at time t.
