@@ -5,7 +5,13 @@ A solver of EEG/MEG inverse problem using a multivariate auto-regressive model (
 iSDR_p is a c++ package for solving the EEG/MEG inverse problem using structural/functional prior 
 on the causality between brain regions/sources.
 iSDR_p solve the following functional:
+
 <img src="http://latex.codecogs.com/gif.latex?\Large&space;U(J)&space;=&space;\sum_{t=p}^T||M_t-G\sum_{i=1}^pA_iJ_{t-i}||_{2}^2&plus;\alpha&space;||J||_{21}" title="\Large U(J) = \sum_{t=p}^T||M_t-G\sum_{i=1}^pA_iJ_{t-i}||_{2}^2+\alpha ||J||_{21}" />
+
+\[\Large U(J) = \sum_{t=p}^T||M_t-G\sum_{i=1}^pA_iJ_{t-i}||_{2}^2+\alpha ||J||_{21}\]
+
+<a href="http://www.codecogs.com/eqnedit.php?latex=\Large&space;L(A)&space;=&space;\sum_{t=1}^{T-1}||J_t-\sum_{i=1}^pA_iJ_{t-i}||_{2}^2" target="_blank"><img src="http://latex.codecogs.com/gif.latex?\Large&space;L(A)&space;=&space;\sum_{t=1}^{T-1}||J_t-\sum_{i=1}^pA_iJ_{t-i}||_{2}^2" title="\Large L(A) = \sum_{t=1}^{T-1}||J_t-\sum_{i=1}^pA_iJ_{t-i}||_{2}^2" /></a>
+
 
 $\sum_t ||M_t-G \sum_i A_i J_{t-i}||_2^2+\alpha ||J||_{21}$.
 
