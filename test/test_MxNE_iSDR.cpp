@@ -18,20 +18,20 @@ double Asum_x(double *a, double *b, int x){
     return asum_x;
 }
 int test_Compute_mu(){
-    int n_s = 10; int n_c = 2; int m_p = 3; int n_t = 100; double d_w_tol=1e-6; 
+    int n_s = 3; int n_c = 2; int m_p = 3; int n_t = 100; double d_w_tol=1e-6; 
     MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, false);
-   typedef GeMatrix<FullStorage<double, ColMajor> > GeMatrix;
-   GeMatrix G(n_c, n_s*m_p);
+    typedef GeMatrix<FullStorage<double, ColMajor> > GeMatrix;
+    GeMatrix G(n_c, n_s*m_p);
     for(int j=0;j<n_s; ++j){
            for (int i =0; i<n_c; ++i){
                for(int k=0;k<m_p;k++)
-                G(i+1,  j*m_p + 1 + k) = j;
+                G(i+1,  j*m_p + 1 + k) = j+1;
            }
     }
-    double mu[n_s];
-    _MxNE.Compute_mu(G.data(), &mu[0]);
+    _MxNE.Compute_mu(G.data());
     for (int i=0;i<n_s;i++){
-        if (mu[i] != std::sqrt(i*i*n_c*m_p))
+        double x = m_p*m_p*(n_c*(i+1)*(i+1))*(n_c*(i+1)*(i+1));
+        if (_MxNE.mu[i] != 1.0/x)
             return 0;
     }
     return 1;
@@ -62,8 +62,9 @@ int test_Compute_dX(){
             }
        }
     }
+    cxxblas::copy(n_c*n_t, &R.data()[0], 1, &_MxNE.R[0], 1);
     for (int i=0;i<n_s;i++){
-        _MxNE.Compute_dX(G.data(), R.data(), X_c.data(), i);
+        _MxNE.Compute_dX(&G.data()[0], &X_c.data()[0], i);
         std::fill(&X_e.data()[0], &X_e.data()[n_t_s], 8*(i+1));
         for (int j=0;j<m_p-1;j++){
              X_e(j+1) = 4*(i+1);
@@ -94,8 +95,9 @@ int test_update_r(){
     }
     std::fill(&X_i.data()[0], &X_i.data()[n_t_s], 1.0);
     std::fill(&X_i_2.data()[0], &X_i_2.data()[n_t_s], 2.0);
-    _MxNE.update_r(G.data(), R.data(), X_i.data(), 0);
-    _MxNE.Compute_dX(G.data(), R.data(), X_i_1.data(), 0);
+    cxxblas::copy(n_c*n_t, &R.data()[0], 1, &_MxNE.R[0], 1);
+    _MxNE.update_r(G.data(), X_i.data(), 0);
+    _MxNE.Compute_dX(G.data(), X_i_1.data(), 0);
     X_i_2(1) = 1;X_i_2(n_t_s) = 1;
     if (Asum_x(X_i_1.data(), X_i_2.data(), n_t_s) != 0.0)
         return 0;
@@ -127,11 +129,11 @@ int test_duality_gap(){
        }
     }
     double gap;
-    gap = _MxNE.duality_gap(G.data(), M.data(), R.data(), J.data(), alpha);
+    gap = _MxNE.duality_gap(G.data(), M.data(), J.data(), alpha);
     if (gap!=alpha*std::sqrt(n_t_s))
         return 0;
     std::fill(&R.data()[0], &R.data()[n_t*n_c], 0.5);
-    gap = _MxNE.duality_gap(G.data(), M.data(), R.data(), J.data(), alpha);
+    gap = _MxNE.duality_gap(G.data(), M.data(), J.data(), alpha);
     double gap2 = 0.0;GeMatrix GtR(n_s, n_t_s);
     _MxNE.Compute_GtR(G.data(), R.data(), GtR.data());  
     double norm_GtR = 0.0;
@@ -252,19 +254,21 @@ int test_Reduce_SC(){
 }
 
 int test_A_step_lsq(){
-    int n_s=3;int n_c=2;int m_p=2;int n_t = 300;double acceptable = 1e-8;
+    int n_s=3;int n_c=2;int m_p=2;int n_t = 100;double acceptable = 1e-2;
     typedef GeMatrix<FullStorage<double, ColMajor> > GeMatrix1;
     typedef GeMatrix<FullStorage<int, ColMajor> > GeMatrix2;
     GeMatrix1 SC(n_s, n_s);
-    iSDR _iSDR(n_s, n_c, m_p, n_t-m_p+1, 0.0, 1, 1, 1e-3, 0.001, false);
+    int n_t_s = n_t;
+    iSDR _iSDR(n_s, n_c, m_p, n_t, 0.0, 1, 1, 1e-3, 0.001, false);
+    _iSDR.n_t_s = n_t_s;
     GeMatrix1 A(n_s, n_s*m_p);
     A(1,1) = 0.47599234;A(1,2) = 0.12215775;A(2,1) = -0.12460725;
     A(2,2) = 0.46669897;A(1,1+n_s) = 0.43268679;A(1,2+n_s) = 0.24245205;
-    A(2,1+n_s) = -0.24120229;A(2,2+n_s) = 0.42778779;A(3,3+n_s) = 1;
-    GeMatrix1 S(n_t, n_s);
+    A(2,1+n_s) = -0.24120229;A(2,2+n_s) = 0.42778779;A(3,3+n_s) = 1.0;
+    GeMatrix1 S(n_t_s, n_s);
     S(1,1) = 6.15700359;S(2,1) = 5;S(1,2) = -3.64289379;S(2,2) = -5;
     S(1, 3) = 1.0;S(2, 3) = 1.0;
-    for (int i=m_p+1;i<n_t+1;i++){
+    for (int i=m_p+1;i<=n_t_s;i++){
         for (int j=0;j<n_s;j++){
              for (int k=0;k<n_s;k++){
                  for (int l=0;l<m_p;l++)
@@ -273,15 +277,15 @@ int test_A_step_lsq(){
         }
     }
     GeMatrix2 A_scon(n_s, n_s);
-    for (int i=0;i<n_s;i++)
-        A_scon(i+1, i+1) = 1;
+    for (int i=1;i<=n_s;i++)
+        A_scon(i, i) = 1;
     A_scon(1, 2) = 1;A_scon(2, 1) = 1;
     GeMatrix1 VAR(n_s, n_s*m_p);
-    _iSDR.A_step_lsq(S.data(), A_scon.data(), 1e-3, VAR.data());
-    GeMatrix1 Se(n_t, n_s);
-    Se(1,1) = 6.15700359;Se(2,1) = 5;
-    Se(1,2) = -3.64289379;Se(2,2) = -5;Se(1, 3) = 1.0;Se(2, 3) = 1.0;
-    for (int i=m_p+1;i<n_t+1;i++){
+    _iSDR.A_step_lsq(&S.data()[0], &A_scon.data()[0], 1e-3, &VAR.data()[0]);
+    GeMatrix1 Se(n_t_s, n_s);
+    Se(1,1) = 6.15700359;Se(2,1) = 5;Se(1,2) = -3.64289379;Se(2,2) = -5;
+    Se(1, 3) = 1.0;Se(2, 3) = 1.0;
+    for (int i=m_p+1;i<=n_t_s;i++){
         for (int j=0;j<n_s;j++){
              for (int k=0;k<n_s;k++){
                  for (int l=0;l<m_p;l++)
@@ -289,7 +293,7 @@ int test_A_step_lsq(){
             }
         }
     }
-    double asum_s = Asum_x(Se.data(),S.data(), n_s*n_t);
+    double asum_s = Asum_x(Se.data(),S.data(), n_s*n_t_s);
     double asum_a = Asum_x(A.data(),VAR.data(), n_s*n_s*m_p);
     if (asum_s > acceptable || asum_a>acceptable)
         return 0;
@@ -356,84 +360,6 @@ int test_MxNE(){
     return 1;
 }
 
-int test_iSDR(){
-    bool verbose = false;
-        int n_c = 306;
-        int n_s = 600;
-        int m_p = 3;
-        double alpha = 0.005;
-        int n_t = 297;
-        int n_iter_mxne = 10000;
-        int n_iter_iSDR = 2;
-        double d_w_tol=1e-4;
-        const char *file_path = "simulated_data_p2.mat";
-        int n_t_s = n_t + m_p - 1;
-        ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
-        _RWMat.Read_parameters(file_path);
-        n_s = _RWMat.n_s;
-        n_c = _RWMat.n_c;
-        m_p = _RWMat.m_p;
-        n_t = _RWMat.n_t;
-        n_t_s = _RWMat.n_t_s;
-        alpha *=n_c;
-        if (verbose){
-            printf(" N of sensors %d\n", n_c);
-            printf(" N of sources %d\n", n_s);
-            printf(" N of samples %d\n", n_t);
-            printf(" MAR model    %d\n", m_p);
-            printf(" iSDR alpha   %.6f\n", alpha);
-            cout<<"iSDR (p : = "<< m_p<< ") with alpha : = "<<alpha<<endl;
-        }
-        double *G_o = new double [n_c*n_s];
-        double *GA_initial = new double [n_c*n_s*m_p];
-        double *M = new double [n_c*n_t];
-        int *SC = new int [n_s*n_s];
-        if (GA_initial == NULL || M == NULL || G_o == NULL || SC == NULL ||
-            SC == NULL) {
-            printf( "\n ERROR: Can't allocate memory. Aborting...\n\n");
-            return 1;
-        }
-        else{ 
-            double *J= new double [n_s*n_t_s];
-            std::fill(&J[0],&J[n_t_s*n_s], 0.0);
-            double *Acoef= new double [n_s*n_s*m_p];
-            int *Active= new int [n_s];
-            _RWMat.ReadData(file_path, G_o, GA_initial, M, SC);
-            iSDR _iSDR(n_s, n_c, m_p, n_t, alpha, n_iter_mxne, n_iter_iSDR,
-            d_w_tol, 0.001, verbose);
-            n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, &Acoef[0],
-            &Active[0], true);
-            if (n_s != 2 || Active[0] != 2 || Active[1] != 10)
-               return 0;
-            typedef GeMatrix<FullStorage<double, ColMajor> > GeMatrix;
-            GeMatrix MV(n_s, n_s*m_p);
-            MV =  0.79429409,  0.47761358,  0.06301413, -0.01665678,
-                 -0.45026301,  0.82554581, -0.02276501,  0.02117927;
-            double Q = Asum_x(&MV.data()[0], &Acoef[0], n_s*n_s*m_p);
-            GeMatrix S(n_t + m_p -1, n_s);
-            GeMatrix Ax(n_s, n_s);
-            int x = 1; int y= 2;
-            Ax(x,x) = 0.96;Ax(x,y) = 0.25;
-            Ax(y,x) = -0.25;Ax(y,y) = 0.95;
-            S(1,x) = 6.15; S(1,y) = -3.64;
-            for (int i=m_p;i<n_t+m_p-1;i++){
-                for (int j=1;j<=n_s;j++){
-                     for (int k=1;k<=n_s;k++){
-                            S(i, j) += Ax(j, k)*S(i-1, k); 
-                    }
-                }
-            }
-        
-            double W = Asum_x(&S.data()[0], &J[0], n_t*n_s);
-            if (Q/(n_s*n_s*m_p) > 1e-2 || W/(n_t*n_s) > 1e-2)
-               return 0;
-
-            
-       }
-
-return 1;
-}
-
 int main(){
     
     if (test_Compute_mu())
@@ -483,12 +409,5 @@ int main(){
     //    printf( "MxNE.MxNE_solve   ... Ok\n");
     //else
     //    printf( "MxNE.MxNE_solve   ... Failed\n");
-
-
-    if (test_iSDR())
-         printf( "iSDR.test_iSDR     ... Ok\n");
-    else
-         printf( "iSDR.test_iSDR     ... Failed\n");
-
-    return 1;
+    return 0;
 }
