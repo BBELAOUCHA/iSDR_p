@@ -85,8 +85,5 @@ The first argument of ./iSDR_p is a .mat file containing the following:
     * m_p: order of MVAR.
 
 # Example
-An example of iSDR can be obtained by the running the following:
-./iSDR/iSDR_p simulated_data_p2.mat 0.001 1e-4 iSDR_results_p2.mat
-
-The results are saved in iSDR_results_p2.mat
+An example of iSDR can be seeing in the examples folder.
 
