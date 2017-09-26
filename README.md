@@ -25,7 +25,7 @@ Where:
 
      * alpha (>0): the regularization parameter.
 # Requirements
-1-MATIO
+1-MATIO > 1.5.2
 
 2-HDF5
 

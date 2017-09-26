@@ -49,7 +49,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
         for (long unsigned int x = 0; x < n_c; ++x)
             R[x + y*n_c] = xData1[x+y*n_c];
     }
-
+    Mat_VarFree(matvar);
     matvar = Mat_VarRead(matfp, "G") ;
     const double *xData_ = static_cast<const double*>(matvar->data) ;
     //#pragma omp parallel for
@@ -57,7 +57,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
         for (long unsigned int x = 0; x < n_c; ++x)
             G_o[x + y*n_c] = xData_[x+y*n_c];
     }
-    
+    Mat_VarFree(matvar);
     matvar = Mat_VarRead(matfp, "SC") ;
     const double *xData2 = static_cast<const double*>(matvar->data) ;
     //#pragma omp parallel for
@@ -76,10 +76,11 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
 
 
 int ReadWriteMat::WriteData(const char *file_path, double *S, double *mvar,
-                            int *A){
+                            int *A, double * w){
     double mat1[n_s][n_t_s];
     double mat2[n_s*m_p][n_s];
-    double mat3[1][n_s];
+    double mat3[n_s];
+    double mat4[n_s];
     unsigned int i, j;
     //#pragma omp parallel for
     for(j=0;j<n_s;j++){
@@ -89,33 +90,39 @@ int ReadWriteMat::WriteData(const char *file_path, double *S, double *mvar,
     //#pragma omp parallel for
     for(i=0;i<n_s * m_p;i++)
         for(j=0;j<n_s;j++)
-            mat2[i][j] = mvar[j + m_p*i];
+            mat2[i][j] = mvar[j + n_s*i];
 
-    for(j=0;j<n_s;j++)
-      mat3[0][j] = A[j];
-
+    for(j=0;j<n_s;j++){
+      mat3[j] = A[j];
+      mat4[j] = w[j];
+    }
     /* setup the output */
     mat_t *mat;
     matvar_t *matvar;
     size_t dims1[2] = {n_t_s,n_s};
     size_t dims2[2] = {n_s,n_s*m_p};
-    size_t dims3[2] = {1,n_s};
+    size_t dim1d[1] = {n_s};
     mat = Mat_Open(file_path, MAT_ACC_RDWR);
     mat = Mat_Create(file_path,NULL);
-    if(mat)
-    {
-      matvar = Mat_VarCreate("S estimate",MAT_C_DOUBLE,MAT_T_DOUBLE,2, dims1,
+    if(mat){
+        /* Estimated brain activation */
+        matvar = Mat_VarCreate("S estimate",MAT_C_DOUBLE,MAT_T_DOUBLE,2, dims1,
             &mat1,0);
-      Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
-      Mat_VarFree(matvar);
-      /* secon matrix */
-      matvar = Mat_VarCreate("S MVAR", MAT_C_DOUBLE,MAT_T_DOUBLE,2, dims2,
+        Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
+        Mat_VarFree(matvar);
+        /* multivariate autoregresive model elements */
+        matvar = Mat_VarCreate("S MVAR", MAT_C_DOUBLE,MAT_T_DOUBLE,2, dims2,
              &mat2,0);
+        Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
+        Mat_VarFree(matvar);
+      /* Label of active sources/regions */
+      matvar = Mat_VarCreate("S Active",MAT_C_DOUBLE,MAT_T_DOUBLE,1, dim1d,
+             &mat3,0);
       Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
       Mat_VarFree(matvar);
-      /* third matrix */
-      matvar = Mat_VarCreate("S Active",MAT_C_DOUBLE,MAT_T_DOUBLE,2, dims3,
-             &mat3,0);
+      /* weights used to normalize MVAR coeffitions */
+      matvar = Mat_VarCreate("Weights", MAT_C_DOUBLE, MAT_T_DOUBLE,1, dim1d,
+             &mat4,0);
       Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
       Mat_VarFree(matvar);
       Mat_Close(mat);

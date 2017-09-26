@@ -1,7 +1,7 @@
 #pragma once
-#ifndef USE_CXXLAPACK
-#define USE_CXXLAPACK
-#endif
+//#ifndef USE_CXXLAPACK
+//#define USE_CXXLAPACK
+//#endif
 
 #include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
@@ -54,7 +54,7 @@ class iSDR {
         int n_t;
         int n_c;
         int m_p;
-        int n_t_s;
+        //int n_t_s;
         double alpha;
         double mar_th;
         double n_mxne;
@@ -63,6 +63,7 @@ class iSDR {
         bool verbose;
     public:
         std::vector<double> Re {0,0,0};
+        int n_t_s;
         int n_s;
         iSDR(int n_s, int n_c, int n_t, int p, double alpha, double n_iter_mxne,
             double n_iter_iSDR, double d_w_tol, double mar_th, bool ver);
@@ -77,5 +78,5 @@ class iSDR {
         void A_step_lsq(const double * S,const  int * A_scon,const double tol,
                     double * VAR)const;
         std::vector<int> Zero_non_zero(const double * S)const;
-        double Eigen_CompanionMatrix(const double * MVAR)const;
+        void GA_removeDC(double * GA) const;
 };

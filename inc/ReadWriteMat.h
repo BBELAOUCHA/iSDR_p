@@ -33,7 +33,7 @@ public:
         ~ReadWriteMat(){};
         void ReadData(const char *file_path, double *G_o, double *G, double *R, 
                        int * SC) const;
-        int WriteData(const char *file_path, double *S, double *mvar,
-                            int *A);
+        int WriteData(const char *file_path, double *S, double *mvar, int *A, 
+                    double * w);
         void Read_parameters(const char *file_path);
 };

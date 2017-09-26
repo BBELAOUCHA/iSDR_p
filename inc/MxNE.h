@@ -1,11 +1,14 @@
 #pragma once
+#ifndef USE_CXXLAPACK
+#define USE_CXXLAPACK
+#endif
 
 #include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
 #include <cmath>
 #include <ctime>
 #include <algorithm>
-#include <omp.h>
+//#include <omp.h>
 #include <string>
 #include <vector>
 ////============================================================================
@@ -49,19 +52,22 @@ class MxNE {
         double d_w_tol;
         bool verbose;
     public:
+        double *R;
+        double *mu;
         MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
              double d_w_tol, bool ver);
         ~MxNE();
         int n_s;
+        void Compute_Me(const double *G, const double * J, double *Me)const;
         int MxNE_solve(const double *M, double *G_reorder, double *J, double
         alpha, int n_iter, double &dual_gap_, double &tol,bool initial) const;
-        void Compute_dX(const double *G_ptr,const double *R_ptr, double *X,
-        const int n_source) const;
-        void Compute_mu(const double *G, double *mu) const;
+        void Compute_dX(const double *G_ptr, double *X, const int n_source) const;
+        void Compute_mu(const double *G) const;
         double absmax(const double *X) const;
-        void update_r(const double *G_reorder, double *R,const double *dX,
-        const int n_source) const;
-        double duality_gap(const double* G, const double *M, double *R,
-        double * J, const double alpha) const;
-        void Compute_GtR(const double *G, const double * R, double *GtR) const;
+        void update_r(const double *G_reorder,const double *dX,
+                      const int n_source) const;
+        double duality_gap(const double* G,const double *M, const double * J,
+                        double alpha) const;
+        void Compute_GtR(const double *G,const double* Rx, double *GtR) const;
+        double Compute_alpha_max(const double *G, const double *M) const;
 };

@@ -1,16 +1,16 @@
-MKL_FOLDER=/home/bbelaouc/intel
-SRCS =  src/MxNE.cpp src/iSDR.cpp src/ReadWriteMat.cpp
-ROOT_PATH=/home/bbelaouc/C++Project
-MKLROOT=${MKL_FOLDER}/compilers_and_libraries_2017.4.196/linux/mkl
+MKL_FOLDER=
+ROOT_PATH=
+MKLROOT=
 
-MKL_CXXFLAGS= -DMKL_ILP64 -m64 -march=native -fopenmp -I${MKLROOT}/include
+SRCS =  src/MxNE.cpp src/iSDR.cpp src/ReadWriteMat.cpp
+MKL_CXXFLAGS= -DMKL_ILP64 -m64 -march=native -fexpensive-optimizations -ffast-math -I${MKLROOT}/include 
 MKL_LDFLAGS=  -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lpthread -lm -ldl
 FlensDir =${ROOT_PATH}/FLENS/
 Matio_Dir=${ROOT_PATH}/matio-1.5.2/build/
 CC = g++
 INCLUDES = -I/usr/include -I${MKL_FOLDER}/mkl/include -I${FlensDir} -I${Matio_Dir}include -I inc
-CXXFLAGS = -std=gnu++11 -O4 -Wall -DWITH_MKLBLAS $(MKL_CXXFLAGS)
-LDFLAGS = -L${MKL_FOLDER}/mkl/lib/intel64_lin -L${Matio_Dir}/lib -lmkl_rt -lblas -llapack -lmatio -lhdf5 -lpthread
+CXXFLAGS = -std=gnu++11 -O4 -Wall -DWITH_MKLBLAS $(MKL_CXXFLAGS) 
+LDFLAGS = -L${MKL_FOLDER}/mkl/lib/intel64_lin -L${Matio_Dir}/lib -lmkl_rt -lblas -llapack -lmatio -lhdf5
 SOURCE = main.cpp
 MYPROGRAM = iSDR_p
 SOURCE2 = test/test_MxNE_iSDR.cpp

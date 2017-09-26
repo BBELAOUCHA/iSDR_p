@@ -1,5 +1,6 @@
-nibabel
-h5py
-numpy
-scipy
-termcolor
+MATIO
+HDF5
+flens
+MKL intel
+BLAS
+LAPACK

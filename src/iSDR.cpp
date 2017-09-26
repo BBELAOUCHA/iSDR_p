@@ -1,4 +1,8 @@
 #include "iSDR.h"
+#include <iostream>
+#include <stdio.h>
+#include <ctime>
+#include <time.h>
 //#include <omp.h>
 
 ////============================================================================
@@ -52,7 +56,7 @@ iSDR::iSDR(int n_sources, int n_sensors, int Mar_model, int n_samples,
     this-> d_w_tol= d_w_tol;
     this-> mar_th = mar_th;
     this-> verbose = ver;
-    std::vector<double> Re {0,0,0};
+    std::vector<double> Re {0, 0, 0};
     return;
 }
 iSDR::~iSDR() { }
@@ -95,11 +99,13 @@ void iSDR::Reduce_SC(const int * SC, int *SC_n, std::vector<int> ind)const{
     //       SC_n (n_s_i x n_s_i): reduced structural connectivity matrix
     //       ind (1 x n_s_i): vector containing active sources.
     //#pragma omp parallel for
-    for (unsigned int i=0;i<ind.size(); ++i){
+    int si = ind.size();
+    for (int i=0;i<si; ++i){
         int x = ind[i];
-        for (unsigned int j=0;j<ind.size(); ++j){
+        for (int j=0;j<si; ++j){
             int y = ind[j];
-            SC_n[i*ind.size()+j] = SC[x*n_s + y];
+            SC_n[i*si+j] = SC[x*n_s + y];
+            //std::cout<<"SC "<<SC_n[i*si+j]<<std::endl;
         }
     }
 }
@@ -140,42 +146,78 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
     // estimate results are written in VAR.
     using namespace flens;
     using namespace std;
-    typedef GeMatrix<FullStorage<double, ColMajor> > GeMatrix;
-    typedef DenseVector<Array<double> > DenseVector;
-    typedef typename DenseVector::IndexType IndexType;
+    typedef GeMatrix<FullStorage<double> >   GeMatrix;
+    typedef typename GeMatrix::IndexType     IndexType;
+    typedef DenseVector<Array<double> >      DenseVectord;
     const Underscore<IndexType>  _;
 
-    int n_x = n_t_s - m_p;
+    int n_x = n_t_s - 2*m_p;
     //#pragma omp parallel for
-    for (int i =0;i < n_s; ++i){
-        DenseVector b(n_x);
+    for (int source =0;source < n_s; source++){
         std::vector<int> ind_X;
-        for (int j=0; j < n_s; ++j){
-            if (A_scon[i*n_s + j] != 0.0)
+        for (int j=0; j < n_s; j++){
+            if (A_scon[source*n_s + j] != 0.0)
                 ind_X.push_back(j);
         }
         int n_connect = ind_X.size();
-        GeMatrix a(n_x, n_connect*m_p);
-        //std::cerr<<" A.data()"<< a.data()<<std::endl;
-        for (int j=0;j<n_x; ++j){   
-            for (int l=0;l < m_p; ++l){
-                for (int k=0;k<n_connect; ++k)
-                    a(j+1, k + l*n_connect+1)= S[ind_X[k]*n_t_s + j + l];
+        GeMatrix A(n_x, n_connect*m_p);
+        GeMatrix A_(n_connect*m_p, n_x);
+        int ixy = n_connect*m_p;
+        DenseVectord y(std::max(n_x, ixy));
+        for (int j = 0;j < n_x; j++){
+            for (int l=0;l < m_p; l++){
+                int x = l*n_connect;
+                int m = j + l + m_p;
+                for (int k = 0;k < n_connect; k++){
+                    A(j+1, k+1+x)= S[ind_X[k]*n_t_s + m];
+                    A_(k+1+x, j+1) = A(j+1, k+1+x);
+                }
+            }
+            y(j+1) = S[source*n_t_s + 2*m_p + j];
+        }
+        DenseVectord solution(ixy);
+        if (n_connect > 1){
+            GeMatrix     ATA(ixy, ixy);
+            GeMatrix     ATA2(ixy, ixy);
+            ATA = A_*A;
+            ATA2 = A_*A;
+            GeMatrix L(ixy, ixy);
+            for (int i=0;i<ixy;i++)
+                L(i+1, i+1) = 1.0;
+            lapack::ls(NoTrans, ATA2, L);
+            GeMatrix Check(ixy, ixy);
+            Check = ATA*L;
+            DenseVectord ATB(ixy);
+            cxxblas::gemm(cxxblas::ColMajor,cxxblas::Trans, cxxblas::NoTrans, ixy,
+            1, n_x, 1.0, &A.data()[0], n_x, &y.data()[0], n_x, 0.0, &ATB.data()[0], ixy);
+            
+            solution = ATB*L;
+        }
+        else{
+            lapack::ls(NoTrans, A, y);
+            for (int q=0;q<m_p;q++)
+                solution(q+1) = y(q+1);
+        }
+        for (int j=0;j<m_p;j++){
+            int block = j*n_s*n_s;
+            for (int k=0;k<n_connect;k++){
+                int s = ind_X[k];
+                if (std::abs(solution(k+j*n_connect + 1)) < tol)
+                    solution(k+j*n_connect + 1) = 0;
+                VAR[source+s*n_s + block] = solution(k+j*n_connect + 1);
             }
         }
-        for (int j=0;j<n_x; ++j)
-            b(j+1) = S[i*n_t_s + m_p + j];
-        //cout<<a<<endl;
-        auto x = b(_(1, n_connect*m_p));
-        lapack::ls(NoTrans, a, b);
-        //cout<<x<<endl;
-        for(int j =0; j<n_connect*m_p; ++j){
-            int block = j/n_connect;
-            int source = j%n_connect;
-            if (std::abs(x(j+1))< tol)
-                x(j+1) = 0.0;
-            VAR[i+ind_X[source]*n_s+block*n_s*n_s] = x(j+1);
-        }
+    }
+}
+
+void iSDR::GA_removeDC(double * GA) const {
+    for (int i=0;i<n_s*m_p;i++){
+        double x = 0;
+        for (int j=0;j<n_c;j++)
+             x += GA[i*n_c+j];
+        x /= n_c;
+        for (int j=0;j<n_c;j++)
+             GA[i*n_c+j]-= x;
     }
 }
 
@@ -215,43 +257,58 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
     for (int i=0;i<n_s; ++i)
         v1.push_back(i);
     std::vector<int> v2;
-    const double * M_ptr = &M[0];
+    const double * M_ptr = M;
     double * G_ptr_o = &G_o[0];
     double * G_ptr = &G[0];
-    double *GA_reorder;
-    GA_reorder = new double [n_c*n_s*m_p];
+    double * GA_reorder = new double [n_c*n_s*m_p];
     double * G_reorder_ptr = &GA_reorder[0];
     Reorder_G(G_ptr, G_reorder_ptr);// reorder gain matrix
-    double *J_ptr = J;
     int *SC_ptr = &SC[0];
     int *SC_n = new int [n_s*n_s];
     double * G_tmp = new double [n_c*n_s];
-    double * MVAR;
-    MVAR = new double [n_s * n_s * m_p];
     MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, verbose);
+    double alpha_max = _MxNE.Compute_alpha_max(&G_reorder_ptr[0], M);
+    alpha_max *= 0.01;
+    alpha *= alpha_max;
+    double * Me = new double [n_c*n_t];
+    double n_M, n_Me, M_tol;
+    cxxblas::nrm2(n_t*n_c, &M[0], 1, n_M);
+    n_Me = n_M;
+    M_tol = 1e-2;
     for (int ii = 0; ii < n_isdr; ++ii){
         v2.clear();
         double dual_gap_= 0.0;
         double tol = 0.0;
-        _MxNE.MxNE_solve(M_ptr, G_reorder_ptr, J_ptr, alpha, n_mxne, dual_gap_,
+        _MxNE.MxNE_solve(M_ptr, G_reorder_ptr, &J[0], alpha, n_mxne, dual_gap_,
                         tol, initial);
         std::vector<int> ind_x;
-        ind_x = Zero_non_zero(J_ptr);
+        ind_x = Zero_non_zero(&J[0]);
         int n_s_x = ind_x.size();
         for (int i=0; i < n_s_x;i++)
             v2.push_back(v1[ind_x[i]]);
         v1 = v2;
-        _MxNE.n_s = n_s_x;
         Re[2] = dual_gap_;
         Re[1] = ii;
         Re[0] = n_s_x;
-        if (n_s != n_s_x && n_s_x > 0){
+        if (n_s == n_s_x){
+            n_s = n_s_x;
+            if (verbose)
+                printf("Same active set (%d) is detected in 2 successive iterations.\n", n_s);
+            break;
+        }
+        if (n_s_x == 0) {
+            n_s = 0;
+            if (verbose)
+                printf("No active source. You may decrease alpha = %f \n", alpha);
+            break;
+        }
+        else{
             //#pragma omp parallel for
             for(int i = 0;i < n_s_x; ++i){
                 if (i != ind_x[i]){
                     int ix = n_t_s*ind_x[i];
-                    cxxblas::copy(n_t_s, J_ptr + ix, 1, J_ptr+i*n_t_s, 1);
-                    std::fill(J_ptr + ix, J_ptr+ n_t_s + ix, 0.0);
+                    cxxblas::copy(n_t_s, &J[ix], 1, &J[i*n_t_s], 1);
+                    std::fill(&J[ix], &J[n_t_s*(ind_x[i]+1)], 0.0);
                 }
             }
             G_tmp = new double [n_c*n_s_x];
@@ -261,70 +318,31 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
             Reduce_SC(SC_ptr, &SC_n[0], ind_x);
             SC_ptr = &SC_n[0];
             n_s = n_s_x;
-            MVAR = new double [n_s * n_s * m_p];
-            A_step_lsq(J_ptr, &SC_n[0], mar_th, MVAR); 
+            double MVAR[n_s*n_s*m_p];
+            std::fill(&MVAR[0], &MVAR[n_s*n_s*m_p], 0.0);
+            A_step_lsq(&J[0], &SC_n[0], mar_th, &MVAR[0]); 
             G_reorder_ptr = new double [n_c*n_s*m_p];
-            G_times_A(G_ptr_o, MVAR, G_reorder_ptr);
-            for (int i = 0;i < n_s*n_s*m_p; i++)
-                Acoef[i] = MVAR[i];
-            for (int i = 0;i < n_s; i++)
-                Active[i] = v1[i];
-        }
-        else if (n_s_x > 0){
+            G_times_A(G_ptr_o, &MVAR[0], G_reorder_ptr);
+            GA_removeDC(G_reorder_ptr);
+            cxxblas::copy(n_s*n_s*m_p, &MVAR[0], 1, &Acoef[0], 1);
+            cxxblas::copy(n_s, &v1[0], 1, &Active[0], 1);
+            _MxNE.n_s = n_s;
+            _MxNE.Compute_Me(G_reorder_ptr, &J[0], &Me[0]);
+            cxxblas::axpy(n_t*n_c,-1.0, &M[0], 1, &Me[0], 1);
+            cxxblas::nrm2(n_t*n_c, &Me[0], 1, n_Me);
             if (verbose)
-                printf("Same active set (%d) is detected in 2 successive iterations.\n", n_s);
-            break;
-        }
-        else {
-            if (verbose)
-                printf("No active source. You may decrease alpha = %f \n", alpha);
-            break;
-        }
-    }
-   return n_s; 
-}
-
-double iSDR::Eigen_CompanionMatrix(const double * MVAR) const{
-    int n = n_s*n_s;
-    using namespace flens;
-    using namespace std;
-    typedef GeMatrix<FullStorage<double, ColMajor> > GeMatrix;
-    typedef DenseVector<Array<double> > DenseVector;
-    typedef typename DenseVector::IndexType IndexType;
-    const Underscore<IndexType>  _;
-    GeMatrix Phi(n_s*m_p, n_s*m_p);
-    for (int i=0;i<(m_p-1)*n_s; i++)
-        Phi(n_s + i + 1, i+1) = 1;
-/*
-    GeMatrix A(n_s, n_s*m_p);
-    for (int i=0;i<n*m_p; i++){
-        A.data()[i] = MVAR[i];    
-    }
-    cout<<A<<endl;
-*/
-    for (int i=0;i<m_p; i++){
-        int block = m_p - 1 - i;
-        for (int j=0;j<n_s;j++){
-            for(int k=0;k<n_s;k++){
-               Phi(j+1, k+1+block*n_s) = MVAR[j + block*n + k*n_s];
+                std::cout<<"Number of active regions/sources = "<<n_s<<std::endl;
+            if ((n_Me/n_M) < M_tol){
+                std::cout<<"Stop iSDR: small residual = "<<(n_Me/n_M)*100.<<" %"
+                <<std::endl;
+                break;
             }
         }
     }
-    DenseVector   work;
-    GeMatrix  VL(n, n), VR(n, n);
-    DenseVector   wr(n), wi(n), w(n);
-    // cerr << "A = " << Phi << endl;
-    // int     optSize = ev_wsq(true, true, A);
-    // Vector  work(optSize);
-    lapack::ev(true, true, Phi, wr, wi, VL, VR, work);
-    w(1) = wr(1)*wr(1)+wi(1)*wi(1);
-    double coef = w(1);
-    for (int i=2;i<=n;i++){
-        w(i) = wr(i)*wr(i)+wi(i)*wi(i);
-        if (coef < w(i))
-           coef = w(i);
-    }
-    //cout<<w<<endl;
-    //std::cout<<coef<<std::endl;
-    return coef;
+    delete[] G_tmp;
+    delete[] SC_n;
+    delete[] G_reorder_ptr;
+    delete[] GA_reorder;
+    delete[] Me;
+    return n_s; 
 }
