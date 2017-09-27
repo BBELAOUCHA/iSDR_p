@@ -23,7 +23,7 @@ Where:
 
      * J_{t-i}: Brain activity (distributed source model with fixed position) at time t-i.
 
-     * alpha (>0): the regularization parameter.
+     * alpha ]0,100[: the regularization parameter as a percentage of the maximum alpha_max (reg parameter which results in zero brain activity).
 # Requirements
 1-MATIO > 1.5.2
 
