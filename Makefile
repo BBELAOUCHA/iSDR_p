@@ -1,6 +1,6 @@
-MKL_FOLDER=
-ROOT_PATH=
-MKLROOT=
+MKL_FOLDER=/home/bbelaouc/intel
+ROOT_PATH=/home/bbelaouc/C++Project
+MKLROOT=${MKL_FOLDER}/compilers_and_libraries_2017.4.196/linux/mkl
 
 SRCS =  src/MxNE.cpp src/iSDR.cpp src/ReadWriteMat.cpp
 MKL_CXXFLAGS= -DMKL_ILP64 -m64 -march=native -fexpensive-optimizations -ffast-math -I${MKLROOT}/include 
