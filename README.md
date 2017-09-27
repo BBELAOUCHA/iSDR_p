@@ -64,7 +64,7 @@ first modify the makefile to include the different folders of the required packa
 # Details
 More details about the package input parameters can be obtained by:
 
-./iSDR_p --help (-h).
+iSDR_p --help (-h).
 
 The first argument of ./iSDR_p is a .mat file containing the following:
     
@@ -86,4 +86,9 @@ The first argument of ./iSDR_p is a .mat file containing the following:
 
 # Example
 An example of iSDR can be seeing in the examples folder.
+
+# Test
+To test the iSDR_p package, you can run the test module:
+
+test_MxNE_iSDR
 
