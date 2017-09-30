@@ -47,7 +47,7 @@ MxNE::MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
 }
 
 MxNE::~MxNE(){
-    //delete [] R;
+    //delete[] R;
     }
 double MxNE::absmax(const double *X) const {
     // compute max(abs(X))
@@ -63,34 +63,32 @@ double MxNE::absmax(const double *X) const {
 void MxNE::Compute_mu(const double *G) const {
     // compute the gradient step mu for each block coordinate i.e. Source
     // mu = ||G_s||_F^{-1}
-    double *X = new double [m_p*m_p];
-    double *G_tmp = new double [n_c*m_p];
-    std::fill(&X[0], &X[m_p*m_p], 0.0);
-    double * X_ptr = &X[0];
-    //#pragma omp parallel for
+    int mp2 = m_p*m_p;
+    int mpc = m_p*n_c;
+    double *X = new double [mp2];
     for(int i = 0;i < n_s; ++i){
+        mu[i] = 0.0;
         double x = 0.0;
-        cxxblas::copy(n_c*m_p, &G[i*m_p*n_c], 1, &G_tmp[0], 1);
+        const double * G_ptr = &G[i*mpc];
         cxxblas::gemm(cxxblas::ColMajor,cxxblas::Trans, cxxblas::NoTrans, m_p,
-        m_p, n_c, 1.0, &G[i*m_p*n_c], n_c, G_tmp, n_c, 0.0, X_ptr, m_p);
-        for (int k=0;k<m_p*m_p;k++)
-            x +=X[k]*X[k];
+        m_p, n_c, 1.0, G_ptr, n_c, G_ptr, n_c, 0.0, &X[0], m_p);
+        for (int k = 0; k < mp2; k++)
+            x += X[k]*X[k];
         if (x != 0.0)
             mu[i] = 1.0/x;
         else
             printf("\nSilent source detected (%d) i.e. columns of G =0.0", i);
     }
     delete[] X;
-    delete[] G_tmp;
 }
 
-void MxNE::Compute_dX(const double *G_ptr, double *X, const int n_source) const {
-    // compute the update of X i.e. X^{i+1} = X^{i} + mu dX
+void MxNE::Compute_dX(const double *G, double *X, const int n_source) const {
+    // compute the update of X i.e. X^{i+1} = X^{i} + mu dX for source with an 
+    // indice n_source
     double * GtR = new double [m_p*n_t];
-    const int ix = n_source*n_c*m_p;
-    const double * G_ptr_x = &G_ptr[ix];
+    const double * G_ptr = &G[n_source*n_c*m_p];
     cxxblas::gemm(cxxblas::ColMajor,cxxblas::Trans, cxxblas::NoTrans, m_p,
-    n_t, n_c, 1.0, G_ptr_x, n_c, &R[0], n_c, 0.0, GtR, m_p);
+    n_t, n_c, 1.0, G_ptr, n_c, &R[0], n_c, 0.0, GtR, m_p);
     for (int j = 0; j < n_t; ++j){
         for (int k = 0;k < m_p; ++k) 
             X[k + j] += GtR[j * m_p + k];
@@ -100,16 +98,12 @@ void MxNE::Compute_dX(const double *G_ptr, double *X, const int n_source) const 
 
 void MxNE::update_r(const double *G_reorder,const double *dX,
                     const int n_source) const {
-    // recompute the residual for each updated source, s, activation 
-    // R = R + G_s * (X^{i-1} - X^i) = R = R - G_s * ( X^i - X^{i-1})
-    const int x_n = n_source * n_c * m_p;
-    const double* Gp = &G_reorder[x_n];
-    //#pragma omp parallel for
-    for (int j = 0; j < n_t; ++j){
-        double* Rj = &R[j*n_c];
+    // recompute the residual for each updated source, s, of indice n_source
+    // activation R = R + G_s * (X^{i-1} - X^i) = R = R - G_s * ( X^i - X^{i-1})
+    const double* Gp = &G_reorder[n_source * n_c * m_p];
+    for (int j = 0; j < n_t; ++j)
         cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans, cxxblas::NoTrans, n_c,
-        1, m_p, 1.0, Gp, n_c, &dX[j], m_p, 1.0, Rj, n_c);
-    }
+        1, m_p, 1.0, Gp, n_c, &dX[j], m_p, 1.0, &R[j*n_c], n_c);
 }
 
 void MxNE::Compute_GtR(const double *G, const double* Rx, double *GtR)const{
@@ -120,14 +114,12 @@ void MxNE::Compute_GtR(const double *G, const double* Rx, double *GtR)const{
     //         R (n_c x n_t): residual matrix (M-GJ)
     //   Output:
     //          GtR : ((n_t x m_p) x n_s)
-    const double * R_ptr;
-    R_ptr = &Rx[0];
-    //#pragma omp parallel for
-    for(int i=0;i<n_s; ++i){
+    const double * R_ptr = &Rx[0];
+    const int x = m_p*n_c;
+    const int y = m_p*n_t;
+    for(int i=0;i<n_s; ++i)
         cxxblas::gemm(cxxblas::ColMajor,cxxblas::Trans, cxxblas::NoTrans, n_t,
-        m_p, n_c, 1.0, R_ptr, n_c, &G[i*m_p*n_c], n_c, 0.0, &GtR[i*m_p*n_t],
-        n_t);
-    }
+        m_p, n_c, 1.0, R_ptr, n_c, &G[i*x], n_c, 0.0, &GtR[i*y], n_t);
 }
 
 double MxNE::Compute_alpha_max(const double *G, const double *M) const{
@@ -171,15 +163,14 @@ double MxNE::duality_gap(const double* G,const double *M, const double * J,
     // compute the duality gap for mixed norm estimate gap = Fp-Fd;
     double *GtR=new double [n_s*m_p*n_t];
     std::fill(&GtR[0],&GtR[n_s*m_p*n_t], 0.0);
-    Compute_GtR(&G[0],&R[0], &GtR[0]);
+    Compute_GtR(G,&R[0], GtR);
     double norm_GtR = 0.0;
-    for (int ii =0; ii < n_s; ++ii){
+    for (int ii =0; ii < n_s; ii++){
         double GtR_axis1norm = 0.0;
         cxxblas::nrm2(n_t*m_p, &GtR[ii*n_t*m_p], 1, GtR_axis1norm);
         if (GtR_axis1norm > norm_GtR)
             norm_GtR = GtR_axis1norm;
     }
-    
     double R_norm, gap, s;
     cxxblas::nrm2(n_t*n_c, &R[0], 1, R_norm);
      if (norm_GtR > alpha){
@@ -215,8 +206,6 @@ int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
     double d_w_ii = 0, d_w_max = 0, W_ii_abs_max = 0, w_max  = 0.0;
     double n_x;
     cxxblas::nrm2(n_t*n_c, M, 1, n_x);
-    //std::fill(&R[0], &R[n_c*n_t], 0.0);
-    std::fill(&mu[0], &mu[n_s], 0.0);
     cxxblas::copy(n_t*n_c, M, 1, &R[0], 1);// initialize Residual R = M-0
     Compute_mu(G_reorder);
     tol = d_w_tol*n_x;//*n_x;
@@ -229,7 +218,7 @@ int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
         cxxblas::axpy(n_t*n_c, -1.0, Me, 1, &R[0], 1);
         delete[] Me;
     }
-    double mu_alpha[n_s];
+    double *mu_alpha = new double [n_s];
     for (int i=0;i<n_s;i++)
         mu_alpha[i] = mu[i]*alpha;
     int ji;
@@ -262,11 +251,8 @@ int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
                 d_w_max = d_w_ii;
             if (W_ii_abs_max > w_max)
                 w_max = W_ii_abs_max;
-            //if (W_ii_abs_max > 1e3){
-            //    break;
-            //}
         }
-        if ((w_max == 0.0) || (d_w_max / w_max <= d_w_tol) || (ji == n_iter - 1)){
+        if ((w_max == 0.0) || (d_w_max / w_max <= d_w_tol) || (ji == n_iter-1)){
             dual_gap_ = duality_gap(G_reorder, M, J, alpha);
             if (dual_gap_ <= tol)
                 break;
@@ -274,16 +260,17 @@ int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
     }
     if (verbose){
         if (dual_gap_ > tol){
-            printf( "\n Objective did not converge, you might want to increase");
+            printf("\n Objective did not converge, you might want to increase");
             printf("\n the number of iterations (%d)", n_iter);
-            printf( "\n Duality gap = %.2e | tol = %.2e \n", dual_gap_, tol);
+            printf("\n Duality gap = %.2e | tol = %.2e \n", dual_gap_, tol);
         }
         else{
-            printf( "\n Objective converges");
+            printf("\n Objective converges");
             printf("\n the number of iterations (%d)", ji+1);
-            printf( "\n Duality gap = %.2e | tol = %.2e \n", dual_gap_, tol);
+            printf("\n Duality gap = %.2e | tol = %.2e \n", dual_gap_, tol);
         }
     }
+    delete[] mu_alpha;
     return ji+1;
 }
 
