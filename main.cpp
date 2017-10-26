@@ -53,7 +53,7 @@ void print_param(int n_s, int n_t, int n_c, int m_p, double alpha, double d_w_to
     printf(" N of samples %d\n", n_t);
     printf(" MAR model    %d\n", m_p);
     printf(" iSDR tol   %.3e\n", d_w_tol);
-    printf(" iSDR (p : =  %d with alpha : = %.3f percent\n", m_p, alpha);
+    printf(" iSDR (p : =  %d with alpha : = %.2f%%\n", m_p, alpha);
 }
 
 int main(int argc, char* argv[]){
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]){
             iSDR _iSDR(n_s, n_c, m_p, n_t, alpha, n_iter_mxne, n_iter_iSDR,
             d_w_tol, mvar_th, verbose);
             n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, &Acoef[0],
-            &Active[0], use_mxne);
+            &Active[0], use_mxne, false);
             double * W = new double [n_s];
             std::fill(&W[0], &W[n_s], 0.0);
             Weight_MVAR(&J[0], &W[0], n_s, n_t_s);

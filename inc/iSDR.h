@@ -52,10 +52,8 @@
 class iSDR {
     private:
         int n_t;
-        int n_c;
         int m_p;
         //int n_t_s;
-        double alpha;
         double mar_th;
         double n_mxne;
         double n_isdr;
@@ -65,11 +63,13 @@ class iSDR {
         std::vector<double> Re {0,0,0};
         int n_t_s;
         int n_s;
+        int n_c;
+        double alpha;
         iSDR(int n_s, int n_c, int n_t, int p, double alpha, double n_iter_mxne,
             double n_iter_iSDR, double d_w_tol, double mar_th, bool ver);
         ~iSDR();
         int iSDR_solve(double *G_o, int *SC, const double *M, double *G,
-        double * J, double * Acoef, int * Active, bool initial);
+        double * J, double * Acoef, int * Active, bool initial, bool with_alpha);
         void Reorder_G(const double *GA, double *G_reorder)const;
         void Reduce_G(const double * G, double *G_n, std::vector<int> ind)const;
         void G_times_A(const double * G, const double *A, double *GA_reorder)

@@ -206,13 +206,13 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
 }
 
 void iSDR::GA_removeDC(double * GA) const {
-    for (int i=0;i<n_s*m_p;i++){
+    for (int i=0;i<n_s;i++){
         double x = 0;
-        for (int j=0;j<n_c;j++)
-            x += GA[i*n_c+j];
-        x /= n_c;
-        for (int j=0;j<n_c;j++)
-             GA[i*n_c+j]-= x;
+        for (int j=0;j<n_c*m_p;j++)
+            x += GA[i*n_c*m_p + j];
+        x /= n_c*m_p;
+        for (int j=0;j<n_c*m_p;j++)
+             GA[i*n_c*m_p + j]-= x;
     }
 }
 
@@ -233,7 +233,7 @@ std::vector<int> iSDR::Zero_non_zero(const double * S)const{
 }
 
 int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
-                     double * J, double * Acoef, int * Active,bool initial){
+                     double * J, double * Acoef, int * Active, bool initial, bool with_alpha){
     // Core function to compute iteratively the MxNE and MVAR coefficients.
     // Input:
     //       G_o (n_c x n_s): gain matrix M = G_o x J
@@ -252,16 +252,17 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
     std::vector<int> v2;
     double * G_ptr_o = &G_o[0];
     double * G_ptr = &G[0];
-    double * GA_reorder = new double [n_c*n_s*m_p];
-    double * G_reorder_ptr = &GA_reorder[0];
+    double * G_reorder_ptr = new double[n_c*n_s*m_p];
     Reorder_G(G_ptr, G_reorder_ptr);// reorder gain matrix
     int *SC_ptr = &SC[0];
     int *SC_n = new int [n_s*n_s];
     double * G_tmp = new double [n_c*n_s];
     MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, verbose);
-    double alpha_max = _MxNE.Compute_alpha_max(&G_reorder_ptr[0], M);
-    alpha_max *= 0.01;
-    alpha *= alpha_max;
+    if (not with_alpha){
+        double alpha_max = _MxNE.Compute_alpha_max(&G_reorder_ptr[0], M);
+        alpha_max *= 0.01;
+        alpha *= alpha_max;
+    }
     double * Me = new double [n_c*n_t];
     double n_M, n_Me, M_tol;
     cxxblas::nrm2(n_t*n_c, &M[0], 1, n_M);
@@ -269,7 +270,7 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
     M_tol = 1e-2;
     double dual_gap_;
     double tol;
-    for (int ii = 0; ii < n_isdr; ++ii){
+    for (int ii = 0; ii < n_isdr; ii++){
         v2.clear();
         dual_gap_= 0.0;
         tol = 0.0;
@@ -293,7 +294,7 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
         if (n_s_x == 0) {
             n_s = 0;
             if (verbose)
-                printf("No active source. You may decrease alpha = %f \n", alpha);
+                printf("No active source. You may decrease alpha = %2e \n", alpha);
             break;
         }
         else{
@@ -336,7 +337,7 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
     delete[] G_tmp;
     delete[] SC_n;
     delete[] G_reorder_ptr;
-    delete[] GA_reorder;
     delete[] Me;
     return n_s; 
 }
+
