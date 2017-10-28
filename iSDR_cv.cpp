@@ -6,7 +6,7 @@
 #include "iSDR.h"
 #include <stdlib.h>
 #include "ReadWriteMat.h"
-
+#include <omp.h>
 using namespace flens;
 using namespace std;
 
@@ -115,7 +115,7 @@ int main(int argc, char* argv[]){
         bool verbose = false;
         if (atoi(argv[8]) == 1)
             verbose = true; 
-        int n_c = 306;int n_s = 600;int m_p = 3;double alpha;int n_t = 297;
+        int n_c = 306;int n_s = 600;int m_p = 3;int n_t = 297;
         int n_iter_mxne = 10000;int n_iter_iSDR = 100;
         const char *file_path = argv[1];
         double alpha_min = atof(argv[2]);
@@ -167,14 +167,18 @@ int main(int argc, char* argv[]){
         MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, verbose);
         double alpha_max = _MxNE.Compute_alpha_max(&G_reorder_ptr[0], M);
         double * cv_fit_data = new double [n_alpha*n_Kfold];
-        double *J;
-        J = new double [n_s*n_t_s];
-        double alpha_real[n_alpha];
+        double * alpha_real = new double[n_alpha];
+        for (int x=0;x<n_alpha;x++)
+            alpha_real[x] = 0.01*alpha_max*ALPHA[x];
         int run_i = 1;
-        for (int r_s=0; r_s<n_Kfold; r_s++){
-            for (int x=0;x<n_alpha;x++){
-                alpha = 0.01*alpha_max*ALPHA[x];
-                alpha_real[x] = alpha;
+        int n_cpu = omp_get_num_procs();
+        printf("OMP uses %d cpus \n", n_cpu);
+        int x, r_s;
+        int percentage = 0;
+        #pragma omp parallel for default(shared) private(r_s, x) collapse(2) num_threads(n_cpu)
+        for (r_s = 0; r_s<n_Kfold; r_s++){
+            for (x = 0; x<n_alpha ;x++){
+                double alpha = alpha_real[x];
                 std::vector<int> sensor_list;
                 std::vector<int> sensor_all;
                 for (int y=0; y< n_c;y++){
@@ -183,6 +187,7 @@ int main(int argc, char* argv[]){
                 }
                 double error_cv_alp = 0.0;
                 for (int i=0; i<Kfold; i++){
+                    double *J = new double [n_s*n_t_s];
                     std::fill(&J[0], &J[n_t_s*n_s], 0.0);
                     std::vector<int> sensor_kfold;
                     int set = block;
@@ -262,27 +267,31 @@ int main(int argc, char* argv[]){
                     delete[] Mn;
                     delete[] Mtmp;
                     delete[] Mcomp;
+                    delete[] J;
                 }
-                //printf("\r Completed: %d %%", 100*(r_s*x)/(n_alpha*n_Kfold));
                 error_cv_alp /= Kfold;
                 int in_dex = r_s+x*n_Kfold;
                 cv_fit_data[in_dex] = error_cv_alp;
-                double percentage = 100.0*run_i/(float)(n_alpha*n_Kfold);
+                percentage = 100*run_i/(n_alpha*n_Kfold);
                 run_i += 1;
+                printf("run %03d %% \n", percentage);
                 if (verbose)
-                    printf("run %.2f %% alpha[%d] = %.2e | data_fit[%d] = %.2e \n",
-                    percentage, x, alpha, r_s, cv_fit_data[in_dex]);
+                    printf("alpha[%03d] = %.2f %% | data_fit[%03d] = %.2e \n", x, alpha/alpha_max*100.0, r_s, error_cv_alp);
             }
+            //if (verbose)
+            //printf("run %03d %% \n", percentage);
         }
         delete[] G_o;
         delete[] GA_initial;
         delete[] M;
         delete[] SC;
-        delete[] J;
         delete[] Acoef;
         delete[] Active;
-        WriteData(save_path, &alpha_real[0], cv_fit_data, alpha_max, n_alpha,
-        n_Kfold);
+        delete[] GA_reorder;
+        delete[] ALPHA;
+        WriteData(save_path, &alpha_real[0], &cv_fit_data[0], alpha_max, n_alpha, n_Kfold);
+        delete[] cv_fit_data;
+        delete[] alpha_real;
     }
     return 0;
 }
