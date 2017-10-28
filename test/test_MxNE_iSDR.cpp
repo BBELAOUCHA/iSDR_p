@@ -293,8 +293,8 @@ int test_A_step_lsq(){
             }
         }
     }
-    double asum_s = Asum_x(Se.data(),S.data(), n_s*n_t_s);
-    double asum_a = Asum_x(A.data(),VAR.data(), n_s*n_s*m_p);
+    double asum_s = Asum_x(Se.data(),S.data(), n_s*n_t_s)/(n_s*n_t_s);
+    double asum_a = Asum_x(A.data(),VAR.data(), n_s*n_s*m_p)/(n_s*n_s*m_p);
     if (asum_s > acceptable || asum_a>acceptable)
         return 0;
     return 1;
