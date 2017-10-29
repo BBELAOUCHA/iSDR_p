@@ -78,5 +78,5 @@ class iSDR {
         void A_step_lsq(const double * S,const  int * A_scon,const double tol,
                     double * VAR)const;
         std::vector<int> Zero_non_zero(const double * S)const;
-        void GA_removeDC(double * GA) const;
+        void GA_removeDC(double * GA) const; 
 };
