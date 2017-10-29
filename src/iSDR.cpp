@@ -340,4 +340,3 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
     delete[] Me;
     return n_s; 
 }
-
