@@ -69,5 +69,5 @@ class MxNE {
         double duality_gap(const double* G,const double *M, const double * J,
                         double alpha) const;
         void Compute_GtR(const double *G,const double* Rx, double *GtR) const;
-        double Compute_alpha_max(const double *G, const double *M) const;
+        double Compute_alpha_max(const double *G, const double *M) const; 
 };
