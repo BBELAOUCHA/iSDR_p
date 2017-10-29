@@ -37,3 +37,4 @@ public:
                     double * w);
         void Read_parameters(const char *file_path);
 };
+ 
