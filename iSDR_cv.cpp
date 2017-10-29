@@ -274,7 +274,8 @@ int main(int argc, char* argv[]){
                 cv_fit_data[in_dex] = error_cv_alp;
                 percentage = 100*run_i/(n_alpha*n_Kfold);
                 run_i += 1;
-                printf("run %03d %% \n", percentage);
+                if (percentage % 5 == 0)
+                    printf("run %03d %% \n", percentage);
                 if (verbose)
                     printf("alpha[%03d] = %.2f %% | data_fit[%03d] = %.2e \n", x, alpha/alpha_max*100.0, r_s, error_cv_alp);
             }
