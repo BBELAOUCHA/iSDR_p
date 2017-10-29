@@ -273,5 +273,3 @@ int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
     delete[] mu_alpha;
     return ji+1;
 }
-
-
