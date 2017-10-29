@@ -278,6 +278,12 @@ int main(int argc, char* argv[]){
                     &GA_n[0], &J[0], &Acoef[0], &Active[0], use_mxne, true);
                     double * Mtmp = new double [set*n_t];
                     std::fill(&Mtmp[0], &Mtmp[set*n_t], 0.0);
+                    double * Mcomp = new double [set*n_t];
+                    std::fill(&Mcomp[0], &Mcomp[set*n_t], 0.0);
+                    for (int k =0;k<set;k++)
+                        cxxblas::copy(n_t, &M[sensor_kfold[k]], n_c, &Mcomp[k],
+                        set);
+                    double cv_k;
                     if (n_s_e > 0){
                         double * Gx = new double [n_s_e*set];
                         for (int t =0;t<n_s_e;t++)
@@ -287,7 +293,6 @@ int main(int argc, char* argv[]){
                         cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans,
                         cxxblas::NoTrans, set, n_s_e*m_p, n_s_e, 1.0, &Gx[0],
                         set, &Acoef[0], n_s_e, 0.0, &GA_es[0], set);
-
                         /*for (int p =0;p<m_p;p++)
                             for(int ji=0;ji<n_t; ++ji)
                                 for (int k =0;k<set;k++)
@@ -297,22 +302,18 @@ int main(int argc, char* argv[]){
                                         Mtmp[ji*set + k] +=  q * w;
                                     }*/
                         delete[] Gx;
-                        double * Mcomp = new double [set*n_t];
-                        std::fill(&Mcomp[0], &Mcomp[set*n_t], 0.0);
-                        for (int k =0;k<set;k++)
-                            cxxblas::copy(n_t, &M[sensor_kfold[k]], n_c, &Mcomp[k],
-                            set);
-                        double cv_k = CV_error_magbias(&GA_es[0], &Mcomp[0], n_s_e, set, n_t, m_p);
+                        cv_k = CV_error_magbias(&GA_es[0], &Mcomp[0], n_s_e, set, n_t, m_p);
                         //cxxblas::axpy(n_t*set,-1.0, &Mcomp[0], 1, &Mtmp[0], 1);
                         //double cv_k;
                         //cxxblas::nrm2(n_t*set, &Mtmp[0], 1, cv_k);
-                        error_cv_alp += cv_k;
                         delete[] GA_es;
-                        delete[] Mcomp;
                     }
-                    else
-                        error_cv_alp += m_norm;
-
+                    else{
+                        cxxblas::nrm2(n_t*set, &Mcomp[0], 1, cv_k);
+                        cv_k *= cv_k/set;
+                    }
+                    error_cv_alp += cv_k;
+                    delete[] Mcomp;
                     delete[] G_on;
                     delete[] GA_n;
                     delete[] Mn;
