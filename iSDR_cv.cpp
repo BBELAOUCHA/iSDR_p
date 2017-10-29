@@ -9,6 +9,16 @@
 #include <omp.h>
 using namespace flens;
 using namespace std;
+#include <random>   // for default_random_engine & uniform_int_distribution<int>
+#include <chrono>   // to provide seed to the default_random_engine
+using namespace std;
+
+default_random_engine dre (chrono::steady_clock::now().time_since_epoch().count());     // provide seed
+int RANDOM (int lim)
+{
+    uniform_int_distribution<int> uid {0,lim};   // help dre to generate nos from 0 to lim (lim included);
+    return uid(dre);    // pass dre as an argument to uid to generate the random no
+}
 
 int WriteData(const char *file_path, double *alpha, double *cv_fit_data,
                 double alpha_max,int n_alpha, int n_Kfold){
@@ -99,6 +109,40 @@ void print_param(int n_s, int n_t, int n_c, int m_p, double alpha,
     printf(" iSDR (p : =  %d with alpha : = %.2f%%\n", m_p, alpha);
 }
 
+double CV_error_magbias(double * GA, double *M, int n_s, int n_c, int n_t, int m_p){
+    int n_t_s = n_t + m_p -1;
+    typedef GeMatrix<FullStorage<double> >   GeMatrix;
+    typedef typename GeMatrix::IndexType     IndexType;
+    typedef DenseVector<Array<double> >      DenseVectord;
+    const Underscore<IndexType>  _;
+    GeMatrix BigG(n_c*n_t, n_s*n_t_s);
+    GeMatrix BigG2(n_c*n_t, n_s*n_t_s);
+    int s_max = std::max(n_c*n_t, n_s*n_t_s);
+    DenseVectord y(s_max);
+    for (int i=0; i<n_t; i++){
+        int shift_x = i*n_c+1;
+        int shift_y = n_s*i+1;
+        for (int j=0;j<n_c;j++){
+            for(int k=0;k<n_s*m_p;k++){
+                BigG(shift_x+j, shift_y+k) = GA[k*n_c+j];
+                BigG2(shift_x+j, shift_y+k) = GA[k*n_c+j];
+            }
+            y(1+i*n_c+j) = M[i*n_c+j];
+        }
+    }
+    lapack::ls(NoTrans, BigG2, y);
+    DenseVectord  M_rec(n_c*n_t);
+    DenseVectord  S(n_s*n_t_s);
+    for (int i=1;i<=n_t_s*n_s;i++)
+        S(i) = y(i);
+    cxxblas::gemv(BigG.order(), NoTrans, BigG.numRows(), BigG.numCols(),
+                  1.0, BigG.data(), BigG.leadingDimension(), S.data(),
+                  S.stride(), 0.0, M_rec.data(), M_rec.stride());
+    cxxblas::axpy(n_t*n_c,-1.0, &M[0], 1, &M_rec.data()[0], 1);
+    double cv_k;
+    cxxblas::nrm2(n_t*n_c, &M_rec.data()[0], 1, cv_k);
+    return cv_k*cv_k/n_c;
+}
 int main(int argc, char* argv[]){
     std::string str1 ("-h");
     std::string str2 ("--help");
@@ -170,11 +214,12 @@ int main(int argc, char* argv[]){
         double * alpha_real = new double[n_alpha];
         for (int x=0;x<n_alpha;x++)
             alpha_real[x] = 0.01*alpha_max*ALPHA[x];
-        int run_i = 1;
         int n_cpu = omp_get_num_procs();
         printf("OMP uses %d cpus \n", n_cpu);
         int x, r_s;
-        int percentage = 0;
+        double m_norm;
+        cxxblas::nrm2(n_t*n_c, &M[0], 1, m_norm);
+        m_norm *= m_norm/n_c;
         #pragma omp parallel for default(shared) private(r_s, x) collapse(2) num_threads(n_cpu)
         for (r_s = 0; r_s<n_Kfold; r_s++){
             for (x = 0; x<n_alpha ;x++){
@@ -194,7 +239,7 @@ int main(int argc, char* argv[]){
                     if (i == Kfold-1)
                         set = n_c - (Kfold-1)*block;
                     for (int j=0;j<set;j++){
-                        int n_c_i = rand() % sensor_list.size();
+                        int n_c_i = RANDOM(sensor_list.size()-1);//std::rand() % sensor_list.size();
                         sensor_kfold.push_back(sensor_list[n_c_i]);
                         sensor_list.erase(sensor_list.begin() + n_c_i);
                     }
@@ -242,42 +287,46 @@ int main(int argc, char* argv[]){
                         cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans,
                         cxxblas::NoTrans, set, n_s_e*m_p, n_s_e, 1.0, &Gx[0],
                         set, &Acoef[0], n_s_e, 0.0, &GA_es[0], set);
-                        for (int p =0;p<m_p;p++)
+
+                        /*for (int p =0;p<m_p;p++)
                             for(int ji=0;ji<n_t; ++ji)
                                 for (int k =0;k<set;k++)
                                     for(int ii=0;ii<n_s_e; ii++){
                                         double q = J[ii*n_t_s + ji + p];
                                         double w = GA_es[(p*n_s_e+ii)*set + k];
                                         Mtmp[ji*set + k] +=  q * w;
-                                    }
-                        delete [] Gx;
-                        delete [] GA_es;
+                                    }*/
+                        delete[] Gx;
+                        double * Mcomp = new double [set*n_t];
+                        std::fill(&Mcomp[0], &Mcomp[set*n_t], 0.0);
+                        for (int k =0;k<set;k++)
+                            cxxblas::copy(n_t, &M[sensor_kfold[k]], n_c, &Mcomp[k],
+                            set);
+                        double cv_k = CV_error_magbias(&GA_es[0], &Mcomp[0], n_s_e, set, n_t, m_p);
+                        //cxxblas::axpy(n_t*set,-1.0, &Mcomp[0], 1, &Mtmp[0], 1);
+                        //double cv_k;
+                        //cxxblas::nrm2(n_t*set, &Mtmp[0], 1, cv_k);
+                        error_cv_alp += cv_k;
+                        delete[] GA_es;
+                        delete[] Mcomp;
                     }
-                    double * Mcomp = new double [set*n_t];
-                    std::fill(&Mcomp[0], &Mcomp[set*n_t], 0.0);
-                    for (int k =0;k<set;k++)
-                        cxxblas::copy(n_t, &M[sensor_kfold[k]], n_c, &Mcomp[k],
-                        set);
-                    cxxblas::axpy(n_t*set,-1.0, &Mcomp[0], 1, &Mtmp[0], 1);
-                    double cv_k;
-                    cxxblas::nrm2(n_t*set, &Mtmp[0], 1, cv_k);
-                    error_cv_alp += (cv_k*cv_k)/set;
+                    else
+                        error_cv_alp += m_norm;
+
                     delete[] G_on;
                     delete[] GA_n;
                     delete[] Mn;
-                    delete[] Mtmp;
-                    delete[] Mcomp;
                     delete[] J;
+                    delete[] Mtmp;
                 }
                 error_cv_alp /= Kfold;
                 int in_dex = r_s+x*n_Kfold;
                 cv_fit_data[in_dex] = error_cv_alp;
-                percentage = 100*run_i/(n_alpha*n_Kfold);
-                run_i += 1;
-                if (percentage % 5 == 0)
-                    printf("run %03d %% \n", percentage);
-                if (verbose)
-                    printf("alpha[%03d] = %.2f %% | data_fit[%03d] = %.2e \n", x, alpha/alpha_max*100.0, r_s, error_cv_alp);
+                if (verbose){
+                    //printf("run %.03f %% \n", percentage);
+                    //std::cerr<<"alpha["<<x<<"] = "<< alpha/alpha_max*100.0<<" | data_fit["<<r_s<<"] = "<<error_cv_alp <<std::endl;
+                    printf("alpha[%03d] = %.2f %% | data_fit[%03d] = %.6e \n", x, alpha/alpha_max*100.0, r_s, error_cv_alp);
+                }
             }
             //if (verbose)
             //printf("run %03d %% \n", percentage);
