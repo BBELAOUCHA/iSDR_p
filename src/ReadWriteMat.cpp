@@ -133,4 +133,3 @@ int ReadWriteMat::WriteData(const char *file_path, double *S, double *mvar,
     }
     return 0;
 }
-
