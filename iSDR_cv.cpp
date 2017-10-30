@@ -276,11 +276,9 @@ int main(int argc, char* argv[]){
                     n_iter_iSDR, d_w_tol, mvar_th, false);
                     int n_s_e = _iSDR_.iSDR_solve(&G_on[0], &SC[0], &Mn[0],
                     &GA_n[0], &J[0], &Acoef[0], &Active[0], use_mxne, true);
-                    double * Mtmp = new double [set*n_t];
                     double * Mcomp = new double [set*n_t];
                     for (int k =0;k<set;k++)
                         cxxblas::copy(n_t, &M[sensor_kfold[k]], n_c, &Mcomp[k], set);
-                    cxxblas::copy(n_t*set, &Mcomp[0], 1, &Mtmp[0], 1);
                     double cv_k;
                     cxxblas::nrm2(n_t*set, &Mcomp[0], 1, cv_k);
                     cv_k *= cv_k/set;
@@ -301,9 +299,9 @@ int main(int argc, char* argv[]){
                         for (int p =0;p<m_p;p++)
                             cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans,
                             cxxblas::NoTrans, set, n_t, n_s_e, -1.0, &GA_es[p*set*n_s_e],
-                            set, &X[n_s_e*p], n_s_e, 1.0, &Mtmp[0], set);
+                            set, &X[n_s_e*p], n_s_e, 1.0, &Mcomp[0], set);
                         //cv_k = CV_error_magbias(&GA_es[0], &Mcomp[0], n_s_e, set, n_t, m_p);
-                        cxxblas::nrm2(n_t*set, &Mtmp[0], 1, cv_k);
+                        cxxblas::nrm2(n_t*set, &Mcomp[0], 1, cv_k);
                         cv_k *= cv_k/set;
                         delete[] GA_es;
                         delete[] Gx;
@@ -315,7 +313,6 @@ int main(int argc, char* argv[]){
                     delete[] GA_n;
                     delete[] Mn;
                     delete[] J;
-                    delete[] Mtmp;
                 }
                 error_cv_alp /= Kfold;
                 int in_dex = r_s+x*n_Kfold;
