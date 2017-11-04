@@ -289,6 +289,7 @@ int main(int argc, char* argv[]){
                     printProgress(tps);
             }
         }
+        std::cout<<std::endl;
         delete[] G_o;
         delete[] GA_initial;
         delete[] M;
