@@ -7,11 +7,22 @@
 #include <stdlib.h>
 #include "ReadWriteMat.h"
 #include <omp.h>
-using namespace flens;
-using namespace std;
+#include <algorithm>
 #include <random>   // for default_random_engine & uniform_int_distribution<int>
 #include <chrono>   // to provide seed to the default_random_engine
+#define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+#define PBWIDTH 60
+using namespace flens;
 using namespace std;
+
+
+void printProgress (double percentage){
+    int val = (int) (percentage * 100);
+    int lpad = (int) (percentage * PBWIDTH);
+    int rpad = PBWIDTH - lpad;
+    printf("\r%3d%% [%.*s%*s]", val, lpad, PBSTR, rpad, "");
+    fflush(stdout);
+}
 
 default_random_engine dre (chrono::steady_clock::now().time_since_epoch().count());     // provide seed
 int RANDOM (int lim)
@@ -109,40 +120,7 @@ void print_param(int n_s, int n_t, int n_c, int m_p, double alpha,
     printf(" iSDR (p : =  %d with alpha : = %.2f%%\n", m_p, alpha);
 }
 
-double CV_error_magbias(double * GA, double *M, int n_s, int n_c, int n_t, int m_p){
-    int n_t_s = n_t + m_p -1;
-    typedef GeMatrix<FullStorage<double> >   GeMatrix;
-    typedef typename GeMatrix::IndexType     IndexType;
-    typedef DenseVector<Array<double> >      DenseVectord;
-    const Underscore<IndexType>  _;
-    GeMatrix BigG(n_c*n_t, n_s*n_t_s);
-    GeMatrix BigG2(n_c*n_t, n_s*n_t_s);
-    int s_max = std::max(n_c*n_t, n_s*n_t_s);
-    DenseVectord y(s_max);
-    for (int i=0; i<n_t; i++){
-        int shift_x = i*n_c+1;
-        int shift_y = n_s*i+1;
-        for (int j=0;j<n_c;j++){
-            for(int k=0;k<n_s*m_p;k++){
-                BigG(shift_x+j, shift_y+k) = GA[k*n_c+j];
-                BigG2(shift_x+j, shift_y+k) = GA[k*n_c+j];
-            }
-            y(1+i*n_c+j) = M[i*n_c+j];
-        }
-    }
-    lapack::ls(NoTrans, BigG2, y);
-    DenseVectord  M_rec(n_c*n_t);
-    DenseVectord  S(n_s*n_t_s);
-    for (int i=1;i<=n_t_s*n_s;i++)
-        S(i) = y(i);
-    cxxblas::gemv(BigG.order(), NoTrans, BigG.numRows(), BigG.numCols(),
-                  1.0, BigG.data(), BigG.leadingDimension(), S.data(),
-                  S.stride(), 0.0, M_rec.data(), M_rec.stride());
-    cxxblas::axpy(n_t*n_c,-1.0, &M[0], 1, &M_rec.data()[0], 1);
-    double cv_k;
-    cxxblas::nrm2(n_t*n_c, &M_rec.data()[0], 1, cv_k);
-    return cv_k*cv_k/n_c;
-}
+
 int main(int argc, char* argv[]){
     std::string str1 ("-h");
     std::string str2 ("--help");
@@ -180,12 +158,16 @@ int main(int argc, char* argv[]){
         n_t_s = _RWMat.n_t_s;
         int block = n_c / Kfold;
         if (verbose){
-            printf("%d values of alpha in [%.2f, %.2f], \n", n_alpha, 
-            alpha_min, alpha_max_);
-            printf("KFold %02d \n", Kfold);
-            printf("Input file %s \n", file_path);
-            printf("Output file %s \n", save_path);
-            printf("Block size %d \n", block);
+            std::cerr<<n_alpha <<" values of alpha in["<<alpha_min<<", "<< alpha_max_<<"]"<<std::endl;
+            std::cerr<<"KFold = "<<Kfold<<std::endl;
+            std::cerr<<"Input file: "<<file_path<<std::endl;
+            std::cerr<<"Output file: "<<save_path<<std::endl;
+            std::cerr<<"Block size = "<<block<<std::endl;
+            //printf("%d values of alpha in [%.2f, %.2f], \n", n_alpha, alpha_min, alpha_max_);
+            //printf("KFold %02d \n", Kfold);
+            //printf("Input file %s \n", file_path);
+            //printf("Output file %s \n", save_path);
+            //printf("Block size %d \n", block);
         }
         double *G_o = new double [n_c*n_s];
         double *GA_initial = new double [n_c*n_s*m_p];
@@ -194,8 +176,6 @@ int main(int argc, char* argv[]){
         bool use_mxne = false;
         if (re_use==1)
             use_mxne = true;
-        double *Acoef= new double [n_s*n_s*m_p];
-        int *Active= new int [n_s];
         _RWMat.ReadData(file_path, G_o, GA_initial, M, SC);
         double mvar_th = 1e-3;
         double *ALPHA = new double[n_alpha];
@@ -215,23 +195,24 @@ int main(int argc, char* argv[]){
         for (int x=0;x<n_alpha;x++)
             alpha_real[x] = 0.01*alpha_max*ALPHA[x];
         int n_cpu = omp_get_num_procs();
-        printf("OMP uses %d cpus \n", n_cpu);
+        //printf("Cross-validation of iSDR uses %d cpus \n", n_cpu);
+        cerr<<"Cross-validation of iSDR uses "<<n_cpu<<" cpus"<<std::endl;
         int x, r_s;
         double m_norm;
         cxxblas::nrm2(n_t*n_c, &M[0], 1, m_norm);
         m_norm *= m_norm/n_c;
+        int iter_i = 0;
         #pragma omp parallel for default(shared) private(r_s, x) collapse(2) num_threads(n_cpu)
         for (r_s = 0; r_s<n_Kfold; r_s++){
-            for (x = 0; x<n_alpha ;x++){
+            for (x = 0; x< n_alpha ;x++){
                 double alpha = alpha_real[x];
                 std::vector<int> sensor_list;
-                std::vector<int> sensor_all;
-                for (int y=0; y< n_c;y++){
+                for (int y=0; y< n_c;y++)
                     sensor_list.push_back(y);
-                    sensor_all.push_back(y);
-                }
                 double error_cv_alp = 0.0;
                 for (int i=0; i<Kfold; i++){
+                    double *Acoef= new double [n_s*n_s*m_p];
+                    int *Active= new int [n_s];
                     double *J = new double [n_s*n_t_s];
                     std::fill(&J[0], &J[n_t_s*n_s], 0.0);
                     std::vector<int> sensor_kfold;
@@ -248,19 +229,10 @@ int main(int argc, char* argv[]){
                     double * Mn = new double [set_i * n_t];
                     double * G_on = new double[set_i * n_s];
                     double * GA_n = new double[set_i*n_s*m_p];
-                    std::fill(&Mn[0], &Mn[set_i * n_t], 0.0);
-                    std::fill(&G_on[0], &G_on[set_i * n_s], 0.0);
-                    std::fill(&GA_n[0], &GA_n[set_i * n_s * m_p], 0.0);
                     int z = 0;
                     for (int j =0; j<n_c; j++){
-                        bool te = false;
-                        for(int k=0;k<set;k++){
-                            if (j == sensor_kfold[k]){
-                                te = true;
-                                break;
-                            }
-                        }
-                        if (not te){
+                        if (not (std::find(sensor_kfold.begin(), sensor_kfold.end(), j) 
+                            != sensor_kfold.end())){
                             cxxblas::copy(n_t, &M[j], n_c, &Mn[z], set_i);
                             cxxblas::copy(n_s*m_p, &GA_initial[j], n_c,
                             &GA_n[z], set_i);
@@ -268,10 +240,6 @@ int main(int argc, char* argv[]){
                             z += 1;
                         }
                     }
-                    if (z != set_i){
-                        printf("Error in the %02d th Kfold", i);
-                        std::cout<<z<<" "<<set_i<<std::endl;
-                        break;}
                     iSDR _iSDR_(n_s, set_i, m_p, n_t, alpha, n_iter_mxne,
                     n_iter_iSDR, d_w_tol, mvar_th, false);
                     int n_s_e = _iSDR_.iSDR_solve(&G_on[0], &SC[0], &Mn[0],
@@ -281,13 +249,11 @@ int main(int argc, char* argv[]){
                         cxxblas::copy(n_t, &M[sensor_kfold[k]], n_c, &Mcomp[k], set);
                     double cv_k;
                     cxxblas::nrm2(n_t*set, &Mcomp[0], 1, cv_k);
-                    cv_k *= cv_k/set;
                     if (n_s_e > 0){
                         double * Gx = new double [n_s_e*set];
                         for (int t =0;t<n_s_e;t++)
                             for (int y=0;y<set;y++)
                                 Gx[set*t + y] = G_o[Active[t]*n_c + sensor_kfold[y]];
-
                         double * GA_es = new double[set*n_s_e*m_p];
                         cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans,
                         cxxblas::NoTrans, set, n_s_e*m_p, n_s_e, 1.0, &Gx[0],
@@ -300,38 +266,33 @@ int main(int argc, char* argv[]){
                             cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans,
                             cxxblas::NoTrans, set, n_t, n_s_e, -1.0, &GA_es[p*set*n_s_e],
                             set, &X[n_s_e*p], n_s_e, 1.0, &Mcomp[0], set);
-                        //cv_k = CV_error_magbias(&GA_es[0], &Mcomp[0], n_s_e, set, n_t, m_p);
                         cxxblas::nrm2(n_t*set, &Mcomp[0], 1, cv_k);
-                        cv_k *= cv_k/set;
                         delete[] GA_es;
                         delete[] Gx;
                         delete[] X;
                     }
+                    cv_k *= cv_k/set;
                     error_cv_alp += cv_k;
                     delete[] Mcomp;
                     delete[] G_on;
                     delete[] GA_n;
                     delete[] Mn;
                     delete[] J;
+                    delete[] Acoef;
+                    delete[] Active;
                 }
+                iter_i += 1;
                 error_cv_alp /= Kfold;
-                int in_dex = r_s+x*n_Kfold;
-                cv_fit_data[in_dex] = error_cv_alp;
-                if (verbose){
-                    //printf("run %.03f %% \n", percentage);
-                    //std::cerr<<"alpha["<<x<<"] = "<< alpha/alpha_max*100.0<<" | data_fit["<<r_s<<"] = "<<error_cv_alp <<std::endl;
-                    printf("alpha[%03d] = %.2f %% | data_fit[%03d] = %.6e \n", x, alpha/alpha_max*100.0, r_s, error_cv_alp);
-                }
+                cv_fit_data[r_s + x*n_Kfold] = error_cv_alp;
+                double tps = (double)iter_i/(n_alpha*n_Kfold);
+                if (verbose)
+                    printProgress(tps);
             }
-            //if (verbose)
-            //printf("run %03d %% \n", percentage);
         }
         delete[] G_o;
         delete[] GA_initial;
         delete[] M;
         delete[] SC;
-        delete[] Acoef;
-        delete[] Active;
         delete[] GA_reorder;
         delete[] ALPHA;
         WriteData(save_path, &alpha_real[0], &cv_fit_data[0], alpha_max, n_alpha, n_Kfold);
