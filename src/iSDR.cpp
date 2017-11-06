@@ -270,6 +270,7 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
     M_tol = 1e-2;
     double dual_gap_;
     double tol;
+    double MVAR[n_s*n_s*m_p];
     for (int ii = 0; ii < n_isdr; ii++){
         v2.clear();
         dual_gap_= 0.0;
@@ -305,17 +306,17 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
                     std::fill(&J[ix], &J[n_t_s*(ind_x[i]+1)], 0.0);
                 }
             }
-            G_tmp = new double [n_c*n_s_x];
+            //double *G_tmp = new double [n_c*n_s_x];
             Reduce_G(G_ptr_o, &G_tmp[0], ind_x);
             G_ptr_o = &G_tmp[0];
             SC_n = new int [n_s_x*n_s_x];
             Reduce_SC(SC_ptr, &SC_n[0], ind_x);
             SC_ptr = &SC_n[0];
             n_s = n_s_x;
-            double MVAR[n_s*n_s*m_p];
+            //double MVAR[n_s*n_s*m_p];
             std::fill(&MVAR[0], &MVAR[n_s*n_s*m_p], 0.0);
-            A_step_lsq(&J[0], &SC_n[0], mar_th, &MVAR[0]); 
-            G_reorder_ptr = new double [n_c*n_s*m_p];
+            A_step_lsq(&J[0], &SC_n[0], mar_th, &MVAR[0]);
+            //G_reorder_ptr = new double [n_c*n_s*m_p];
             G_times_A(G_ptr_o, &MVAR[0], G_reorder_ptr);
             GA_removeDC(G_reorder_ptr);
             cxxblas::copy(n_s*n_s*m_p, &MVAR[0], 1, &Acoef[0], 1);
@@ -334,9 +335,8 @@ int iSDR::iSDR_solve(double *G_o, int *SC, const double *M, double *G,
             }
         }
     }
-    delete[] G_tmp;
     delete[] SC_n;
     delete[] G_reorder_ptr;
     delete[] Me;
-    return n_s; 
+    return n_s;
 }
