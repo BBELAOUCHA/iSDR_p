@@ -102,7 +102,6 @@ int ReadWriteMat::WriteData(const char *file_path, double *S, double *mvar,
     size_t dims1[2] = {n_t_s,n_s};
     size_t dims2[2] = {n_s,n_s*m_p};
     size_t dim1d[1] = {n_s};
-    mat = Mat_Open(file_path, MAT_ACC_RDWR);
     mat = Mat_Create(file_path,NULL);
     if(mat){
         /* Estimated brain activation */
