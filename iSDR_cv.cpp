@@ -63,7 +63,6 @@ int WriteData(const char *file_path, double *alpha, double *cv_fit_data,
     size_t dim1d[1] = {(unsigned int)n_alpha};
     size_t dim2d[1] = {(unsigned int)1};
     size_t dims2[2] = {(unsigned int)n_Kfold, (unsigned int)n_alpha};
-    mat = Mat_Open(file_path, MAT_ACC_RDWR);
     mat = Mat_Create(file_path,NULL);
     if(mat){
         matvar = Mat_VarCreate("Alpha",MAT_C_DOUBLE,MAT_T_DOUBLE,1, dim1d,
