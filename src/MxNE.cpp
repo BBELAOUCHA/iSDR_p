@@ -47,7 +47,8 @@ MxNE::MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
 }
 
 MxNE::~MxNE(){
-    //delete[] R;
+    delete[] R;
+    delete[] mu;
     }
 double MxNE::absmax(const double *X) const {
     // compute max(abs(X))
@@ -222,13 +223,14 @@ int MxNE::MxNE_solve(const double *M, double *G_reorder, double *J,
     for (int i=0;i<n_s;i++)
         mu_alpha[i] = mu[i]*alpha;
     int ji;
+    double *Ji;
     for (ji = 0; ji < n_iter; ji++){
         w_max = 0.0;
         d_w_max = 0.0;
         for (int i = 0; i < n_s; ++i){
             double * dX = new double [n_t_s];
             double * wii= new double [n_t_s];
-            double * Ji = &J[i*n_t_s];
+            Ji = &J[i*n_t_s];
             std::fill(&dX[0], &dX[n_t_s], 0.0);
             cxxblas::copy(n_t_s, Ji, 1, wii, 1);
             Compute_dX(G_reorder, dX, i);
