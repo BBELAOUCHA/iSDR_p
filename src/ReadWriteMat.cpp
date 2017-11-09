@@ -1,5 +1,6 @@
 #include "ReadWriteMat.h"
 #include <omp.h>
+#include "Matrix.h"
 
 ReadWriteMat::ReadWriteMat(int n_sources, int n_sensors, int Mar_model, int n_samples){
     this-> n_t = n_samples;
@@ -27,8 +28,8 @@ void ReadWriteMat::Read_parameters(const char *file_path){
     m_p = x[0];
     n_t_s = n_t + m_p - 1;
 }
-void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
-                            double *R, int * SC) const {
+void ReadWriteMat::ReadData(const char *file_path, Maths::DMatrix &G_o, Maths::DMatrix &GA,
+                            Maths::DMatrix &R, Maths::IMatrix &SC) const {
     // read data from mat file
     mat_t *matfp; // use matio to read the .mat file
     matvar_t *matvar;
@@ -38,7 +39,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
     //#pragma omp parallel for
     for(long unsigned int y = 0;y < n_s*m_p; ++y){
         for (long unsigned int x = 0; x < n_c; ++x)
-            GA[x + y*n_c] = xData[x + y*n_c]; 
+            GA.data()[x + y*n_c] = xData[x + y*n_c]; 
     }
 
     Mat_VarFree(matvar);
@@ -47,7 +48,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
     //#pragma omp parallel for
     for(long unsigned int y = 0;y < n_t; ++y){
         for (long unsigned int x = 0; x < n_c; ++x)
-            R[x + y*n_c] = xData1[x+y*n_c];
+            R.data()[x + y*n_c] = xData1[x+y*n_c];
     }
     Mat_VarFree(matvar);
     matvar = Mat_VarRead(matfp, "G") ;
@@ -55,7 +56,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
     //#pragma omp parallel for
     for(long unsigned int y = 0;y < n_s; ++y){
         for (long unsigned int x = 0; x < n_c; ++x)
-            G_o[x + y*n_c] = xData_[x+y*n_c];
+            G_o.data()[x + y*n_c] = xData_[x+y*n_c];
     }
     Mat_VarFree(matvar);
     matvar = Mat_VarRead(matfp, "SC") ;
@@ -63,7 +64,7 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
     //#pragma omp parallel for
     for(long unsigned int y = 0;y < n_s; y++){
         for (long unsigned int x = 0; x < n_s; x++)
-            SC[x*n_s + y] = (int)xData2[x*n_s+y];
+            SC.data()[x*n_s + y] = (int)xData2[x*n_s+y];
     }
 
     xData_ = NULL;
@@ -75,8 +76,8 @@ void ReadWriteMat::ReadData(const char *file_path, double *G_o, double *GA,
 }
 
 
-int ReadWriteMat::WriteData(const char *file_path, double *S, double *mvar,
-                            int *A, double * w){
+int ReadWriteMat::WriteData(const char *file_path, Maths::DMatrix &S,
+                Maths::DMatrix &mvar, Maths::IVector &A, Maths::DVector &w){
     double mat1[n_s][n_t_s];
     double mat2[n_s*m_p][n_s];
     double mat3[n_s];
@@ -85,16 +86,16 @@ int ReadWriteMat::WriteData(const char *file_path, double *S, double *mvar,
     //#pragma omp parallel for
     for(j=0;j<n_s;j++){
         for(i=0;i<n_t_s;i++)
-            mat1[j][i] = S[n_t_s*j+i];
+            mat1[j][i] = S.data()[n_t_s*j+i];
     }
     //#pragma omp parallel for
     for(i=0;i<n_s * m_p;i++)
         for(j=0;j<n_s;j++)
-            mat2[i][j] = mvar[j + n_s*i];
+            mat2[i][j] = mvar.data()[j + n_s*i];
 
     for(j=0;j<n_s;j++){
-      mat3[j] = A[j];
-      mat4[j] = w[j];
+      mat3[j] = A.data()[j];
+      mat4[j] = w.data()[j];
     }
     /* setup the output */
     mat_t *mat;
@@ -132,3 +133,4 @@ int ReadWriteMat::WriteData(const char *file_path, double *S, double *mvar,
     }
     return 0;
 }
+

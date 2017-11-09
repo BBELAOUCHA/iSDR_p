@@ -1,6 +1,6 @@
 MATIO
 HDF5
-flens
+Flens
 MKL intel
 BLAS
 LAPACK

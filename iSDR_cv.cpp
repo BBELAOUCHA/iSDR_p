@@ -31,8 +31,8 @@ int RANDOM (int lim)
     return uid(dre);    // pass dre as an argument to uid to generate the random no
 }
 
-int WriteData(const char *file_path, double *alpha, double *cv_fit_data,
-                double alpha_max,int n_alpha, int n_Kfold){
+int WriteData(const char *file_path, Maths::DVector &alpha, Maths::DMatrix &cv_fit_data,
+                double alpha_max){
     /* This function write the results of the K-fold cross-validation into a
      * mat file.
      *      file_path: file name and location to where you wanna write results
@@ -45,16 +45,18 @@ int WriteData(const char *file_path, double *alpha, double *cv_fit_data,
      *      n_alpha: length of 1D array "alpha"
      *      n_Kfold: number of runs for each alpha value.
      * */
+    int n_alpha = cv_fit_data.numRows();
+    int n_Kfold = cv_fit_data.numCols();
     double vec1[n_alpha];
     double mat1[n_alpha][n_Kfold];
     double sca1[1];
     int j,i;
     for(j=0;j<n_alpha;j++){
-      vec1[j] = alpha[j];
+      vec1[j] = alpha(j+1);
     }
     for(j=0;j<n_alpha;j++){
         for(i=0;i<n_Kfold;i++)
-            mat1[j][i] = cv_fit_data[n_Kfold*j+i];
+            mat1[j][i] = cv_fit_data(j+1, i+1);
     }
     sca1[0] = alpha_max;
     /* setup the output */
@@ -85,7 +87,11 @@ int WriteData(const char *file_path, double *alpha, double *cv_fit_data,
     }
     return 0;
 }
-
+void print_args(const int argc,char* argv[]) {
+    for (int i=0;i<argc;++i)
+        std::cerr << argv[i] << ' ';
+    std::cerr << std::endl;
+}
 void explain_para(){
     printf( " ./iSDR  arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8\n");
     printf( "      arg1 : path to mat file that contains MEG/EEG, G, GA\n");
@@ -132,172 +138,149 @@ int main(int argc, char* argv[]){
         explain_para();
         return 1;
     }
-    else{
-        bool verbose = false;
-        if (atoi(argv[8]) == 1)
-            verbose = true; 
-        int n_c = 306;int n_s = 600;int m_p = 3;int n_t = 297;
-        int n_iter_mxne = 10000;int n_iter_iSDR = 100;
-        const char *file_path = argv[1];
-        double alpha_min = atof(argv[2]);
-        double alpha_max_ = atof(argv[3]);
-        int n_alpha = atoi(argv[4]);
-        int Kfold = atoi(argv[5]);
-        int n_Kfold = atoi(argv[6]);
-        const char *save_path = argv[7];
-        double d_w_tol=1e-7;
-        int re_use = 1;
-        int n_t_s = n_t + m_p - 1;
-        ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
-        _RWMat.Read_parameters(file_path);
-        n_s = _RWMat.n_s;
-        n_c = _RWMat.n_c;
-        m_p = _RWMat.m_p;
-        n_t = _RWMat.n_t;
-        n_t_s = _RWMat.n_t_s;
-        int block = n_c / Kfold;
-        if (verbose){
-            std::cerr<<n_alpha <<" values of alpha in["<<alpha_min<<", "<< alpha_max_<<"]"<<std::endl;
-            std::cerr<<"KFold = "<<Kfold<<std::endl;
-            std::cerr<<"Input file: "<<file_path<<std::endl;
-            std::cerr<<"Output file: "<<save_path<<std::endl;
-            std::cerr<<"Block size = "<<block<<std::endl;
-            //printf("%d values of alpha in [%.2f, %.2f], \n", n_alpha, alpha_min, alpha_max_);
-            //printf("KFold %02d \n", Kfold);
-            //printf("Input file %s \n", file_path);
-            //printf("Output file %s \n", save_path);
-            //printf("Block size %d \n", block);
-        }
-        double *G_o = new double [n_c*n_s];
-        double *GA_initial = new double [n_c*n_s*m_p];
-        double *M = new double [n_c*n_t];
-        int *SC = new int [n_s*n_s];
-        bool use_mxne = false;
-        if (re_use==1)
-            use_mxne = true;
-        _RWMat.ReadData(file_path, G_o, GA_initial, M, SC);
-        double mvar_th = 1e-3;
-        double *ALPHA = new double[n_alpha];
-        double alp_step = (alpha_max_ - alpha_min)/(float)n_alpha;
-        for (int y=0; y< n_alpha;y++){
-            ALPHA[y] = alpha_min + y*alp_step;
-        }
-        double * GA_reorder = new double [n_c*n_s*m_p];
-        double * G_reorder_ptr = &GA_reorder[0];
-        iSDR _iSDR(n_s, n_c, m_p, n_t, 1.0, n_iter_mxne, n_iter_iSDR,
-                    d_w_tol, mvar_th, verbose);
-        _iSDR.Reorder_G(&GA_initial[0], G_reorder_ptr);// reorder gain matrix
-        MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, verbose);
-        double alpha_max = _MxNE.Compute_alpha_max(&G_reorder_ptr[0], M);
-        double * cv_fit_data = new double [n_alpha*n_Kfold];
-        double * alpha_real = new double[n_alpha];
-        for (int x=0;x<n_alpha;x++)
-            alpha_real[x] = 0.01*alpha_max*ALPHA[x];
-        int n_cpu = omp_get_num_procs();
-        //printf("Cross-validation of iSDR uses %d cpus \n", n_cpu);
-        cerr<<"Cross-validation of iSDR uses "<<n_cpu<<" cpus"<<std::endl;
-        int x, r_s;
-        double m_norm;
-        cxxblas::nrm2(n_t*n_c, &M[0], 1, m_norm);
-        m_norm *= m_norm/n_c;
-        int iter_i = 0;
-        #pragma omp parallel for default(shared) private(r_s, x) collapse(2) num_threads(n_cpu)
-        for (r_s = 0; r_s<n_Kfold; r_s++){
-            for (x = 0; x< n_alpha ;x++){
-                double alpha = alpha_real[x];
-                std::vector<int> sensor_list;
-                for (int y=0; y< n_c;y++)
-                    sensor_list.push_back(y);
-                double error_cv_alp = 0.0;
-                for (int i=0; i<Kfold; i++){
-                    double *Acoef= new double [n_s*n_s*m_p];
-                    int *Active= new int [n_s];
-                    double *J = new double [n_s*n_t_s];
-                    std::fill(&J[0], &J[n_t_s*n_s], 0.0);
-                    std::vector<int> sensor_kfold;
-                    int set = block;
-                    if (i == Kfold-1)
-                        set = n_c - (Kfold-1)*block;
-                    for (int j=0;j<set;j++){
-                        int n_c_i = RANDOM(sensor_list.size()-1);//std::rand() % sensor_list.size();
-                        sensor_kfold.push_back(sensor_list[n_c_i]);
-                        sensor_list.erase(sensor_list.begin() + n_c_i);
-                    }
-                    std::sort(sensor_kfold.begin(), sensor_kfold.end());
-                    int set_i = n_c - set;
-                    double * Mn = new double [set_i * n_t];
-                    double * G_on = new double[set_i * n_s];
-                    double * GA_n = new double[set_i*n_s*m_p];
-                    int z = 0;
-                    for (int j =0; j<n_c; j++){
-                        if (not (std::find(sensor_kfold.begin(), sensor_kfold.end(), j) 
-                            != sensor_kfold.end())){
-                            cxxblas::copy(n_t, &M[j], n_c, &Mn[z], set_i);
-                            cxxblas::copy(n_s*m_p, &GA_initial[j], n_c,
-                            &GA_n[z], set_i);
-                            cxxblas::copy(n_s, &G_o[j], n_c, &G_on[z], set_i);
-                            z += 1;
-                        }
-                    }
-                    iSDR _iSDR_(n_s, set_i, m_p, n_t, alpha, n_iter_mxne,
-                    n_iter_iSDR, d_w_tol, mvar_th, false);
-                    int n_s_e = _iSDR_.iSDR_solve(&G_on[0], &SC[0], &Mn[0],
-                    &GA_n[0], &J[0], &Acoef[0], &Active[0], use_mxne, true);
-                    double * Mcomp = new double [set*n_t];
-                    for (int k =0;k<set;k++)
-                        cxxblas::copy(n_t, &M[sensor_kfold[k]], n_c, &Mcomp[k], set);
-                    double cv_k;
-                    cxxblas::nrm2(n_t*set, &Mcomp[0], 1, cv_k);
-                    if (n_s_e > 0){
-                        double * Gx = new double [n_s_e*set];
-                        for (int t =0;t<n_s_e;t++)
-                            for (int y=0;y<set;y++)
-                                Gx[set*t + y] = G_o[Active[t]*n_c + sensor_kfold[y]];
-                        double * GA_es = new double[set*n_s_e*m_p];
-                        cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans,
-                        cxxblas::NoTrans, set, n_s_e*m_p, n_s_e, 1.0, &Gx[0],
-                        set, &Acoef[0], n_s_e, 0.0, &GA_es[0], set);
-                        double * X = new double[n_s_e*n_t_s];
-                        for(int ji=0;ji<n_t_s; ++ji)
-                            for (int k =0;k<n_s_e;k++)
-                                X[k+ji*n_s_e] = J[k*n_t_s + ji];
-                        for (int p =0;p<m_p;p++)
-                            cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans,
-                            cxxblas::NoTrans, set, n_t, n_s_e, -1.0, &GA_es[p*set*n_s_e],
-                            set, &X[n_s_e*p], n_s_e, 1.0, &Mcomp[0], set);
-                        cxxblas::nrm2(n_t*set, &Mcomp[0], 1, cv_k);
-                        delete[] GA_es;
-                        delete[] Gx;
-                        delete[] X;
-                    }
-                    cv_k *= cv_k/set;
-                    error_cv_alp += cv_k;
-                    delete[] Mcomp;
-                    delete[] G_on;
-                    delete[] GA_n;
-                    delete[] Mn;
-                    delete[] J;
-                    delete[] Acoef;
-                    delete[] Active;
-                }
-                iter_i += 1;
-                error_cv_alp /= Kfold;
-                cv_fit_data[r_s + x*n_Kfold] = error_cv_alp;
-                double tps = (double)iter_i/(n_alpha*n_Kfold);
-                if (verbose)
-                    printProgress(tps);
-            }
-        }
-        std::cout<<std::endl;
-        delete[] G_o;
-        delete[] GA_initial;
-        delete[] M;
-        delete[] SC;
-        delete[] GA_reorder;
-        delete[] ALPHA;
-        WriteData(save_path, &alpha_real[0], &cv_fit_data[0], alpha_max, n_alpha, n_Kfold);
-        delete[] cv_fit_data;
-        delete[] alpha_real;
+    print_args(argc,argv);
+    const bool verbose = (atoi(argv[8]) == 1) ? true : false;
+    Underscore<Maths::DMatrix::IndexType> _;
+    int n_c = 306;int n_s = 600;int m_p = 3;int n_t = 297;
+    int n_iter_mxne = 10000;int n_iter_iSDR = 100;
+    const char *file_path = argv[1];
+    double alpha_min = atof(argv[2]);
+    double alpha_max_ = atof(argv[3]);
+    int n_alpha = atoi(argv[4]);
+    int Kfold = atoi(argv[5]);
+    int n_Kfold = atoi(argv[6]);
+    const char *save_path = argv[7];
+    double d_w_tol=1e-7;
+    int re_use = 1;
+    int n_t_s = n_t + m_p - 1;
+    ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
+    _RWMat.Read_parameters(file_path);
+    n_s = _RWMat.n_s;
+    n_c = _RWMat.n_c;
+    m_p = _RWMat.m_p;
+    n_t = _RWMat.n_t;
+    n_t_s = _RWMat.n_t_s;
+    int block = n_c / Kfold;
+    if (verbose){
+        std::cerr<<n_alpha <<" values of alpha in["<<alpha_min<<", "<< alpha_max_<<"]"<<std::endl;
+        std::cerr<<"KFold = "<<Kfold<<std::endl;
+        std::cerr<<"Input file: "<<file_path<<std::endl;
+        std::cerr<<"Output file: "<<save_path<<std::endl;
+        std::cerr<<"Block size = "<<block<<std::endl;
     }
+    Maths::DMatrix G_o(n_c,n_s);
+    Maths::DMatrix GA_initial(n_c, n_s*m_p);
+    Maths::DMatrix M(n_c, n_t);
+    Maths::IMatrix SC(n_s,n_s);
+    bool use_mxne = false;
+    if (re_use==1)
+        use_mxne = true;
+    _RWMat.ReadData(file_path, G_o, GA_initial, M, SC);
+    double mvar_th = 1e-3;
+    Maths::DVector ALPHA(n_alpha);
+    double alp_step = (alpha_max_ - alpha_min)/(float)n_alpha;
+    for (int y=1; y<= n_alpha;y++){
+        ALPHA(y) = alpha_min + (y-1)*alp_step;
+    }
+    Maths::DMatrix GA_reorder(n_c, n_s*m_p);
+    iSDR _iSDR(n_s, n_c, m_p, n_t, 1.0, n_iter_mxne, n_iter_iSDR, d_w_tol,
+    mvar_th, verbose);
+    _iSDR.Reorder_G(GA_initial, GA_reorder);// reorder gain matrix
+    MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, verbose);
+    double alpha_max = _MxNE.Compute_alpha_max(GA_reorder, M);
+    Maths::DMatrix cv_fit_data(n_alpha, n_Kfold);
+    Maths::DVector  alpha_real(n_alpha);
+    for (int x=1;x<=n_alpha;x++)
+        alpha_real(x) = 0.01*alpha_max*ALPHA(x);
+    int n_cpu = omp_get_num_procs();
+
+    cerr<<"Cross-validation of iSDR uses "<<n_cpu<<" cpus"<<std::endl;
+    int x, r_s;
+    double m_norm;
+    cxxblas::nrm2(n_t*n_c, &M.data()[0], 1, m_norm);
+    m_norm *= m_norm/n_c;
+    int iter_i = 0;
+    #pragma omp parallel for default(shared) private(r_s, x) collapse(2) \
+    num_threads(n_cpu)
+    for (r_s = 0; r_s<n_Kfold; ++r_s){
+        for (x = 0; x< n_alpha ; ++x){
+            double alpha = alpha_real(x+1);
+            std::vector<int> sensor_list;
+            for (int y=0; y< n_c;y++)
+                sensor_list.push_back(y);
+            double error_cv_alp = 0.0;
+            for (int i=0; i<Kfold; i++){
+                Maths::DMatrix J(n_t_s, n_s);
+                Maths::DMatrix Acoef(n_s, n_s*m_p);
+                Maths::IVector Active(n_s);
+                std::vector<int> sensor_kfold;
+                int set = block;
+                if (i == Kfold-1)
+                    set = n_c - (Kfold-1)*block;
+                for (int j=0;j<set;j++){
+                    int n_c_i = RANDOM(sensor_list.size()-1);//std::rand() % sensor_list.size();
+                    sensor_kfold.push_back(sensor_list[n_c_i]);
+                    sensor_list.erase(sensor_list.begin() + n_c_i);
+                }
+                std::sort(sensor_kfold.begin(), sensor_kfold.end());
+                int set_i = n_c - set;
+                Maths::DMatrix Mn(set_i, n_t);
+                Maths::DMatrix G_on(set_i, n_s);
+                Maths::DMatrix GA_n(set_i,n_s*m_p);
+                int z=1;
+                for (int j=0; j<n_c; j++){
+                    if (not (std::find(sensor_kfold.begin(), sensor_kfold.end(), j) 
+                        != sensor_kfold.end())){
+                        Mn(z, _) = M(j+1, _);
+                        GA_n(z, _) = GA_initial(j+1, _);
+                        G_on(z, _) = G_o(j+1, _);
+                        z += 1;
+                    }
+                }
+                iSDR _iSDR_(n_s, set_i, m_p, n_t, alpha, n_iter_mxne,
+                n_iter_iSDR, d_w_tol, mvar_th, false);
+                int n_s_e = _iSDR_.iSDR_solve(G_on, SC, Mn, GA_n, J,
+                &Acoef.data()[0], &Active.data()[0], use_mxne, true);
+                Maths::DMatrix  Mcomp(set, n_t);
+                for (int k =0;k<set;k++)
+                    Mcomp(k+1, _) = M(sensor_kfold[k]+1, _);
+                double cv_k;
+                cxxblas::nrm2(n_t*set, &Mcomp.data()[0], 1, cv_k);
+                if (n_s_e > 0){
+                    Maths::DMatrix Gx(set, n_s_e);
+                    for (int t =0;t<n_s_e;++t)
+                        for (int y=0;y<set;++y)
+                            Gx(y+1, t+1) = G_o(sensor_kfold[y]+1, Active(t+1)+1);
+                    Maths::DMatrix GA_es(set, n_s_e);
+                    Maths::DMatrix X(n_t_s, n_s_e);
+                    Maths::DMatrix GA(set, n_s_e);
+                    Maths::DMatrix MAR(n_s_e, n_s_e*m_p);
+                    cxxblas::copy(n_s_e*n_s_e*m_p, &Acoef.data()[0], 1,
+                    &MAR.data()[0], 1);
+                    X = J(_, _(1, n_s_e));
+                    for (int p =0;p<m_p;p++){
+                        GA_es = Gx * MAR(_, _(p*n_s_e+1, (p+1)*n_s_e));
+                        Mcomp -= GA_es*transpose(X(_(p+1, n_t+p),_));
+                    }
+                    cxxblas::nrm2(n_t*set, &Mcomp.data()[0], 1, cv_k);
+                }
+                cv_k *= cv_k/set;
+                error_cv_alp += cv_k;
+            }
+            #pragma omp atomic
+            iter_i += 1;
+            error_cv_alp /= Kfold;
+            cv_fit_data(x+1, r_s+1) = error_cv_alp;
+            double tps = (double)iter_i/(n_alpha*n_Kfold);
+            if (verbose)
+                printProgress(tps);
+        }
+    }
+    if (verbose){
+        cout<<"\n          ***************************************************"<<endl;
+        cout<<"          ****      iSDR cross validation finished       ****"<<endl;
+        cout<<"          ***************************************************"<<endl;
+    }
+    WriteData(save_path, alpha_real, cv_fit_data, alpha_max);
     return 0;
 }
