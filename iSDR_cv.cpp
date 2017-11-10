@@ -199,38 +199,40 @@ int main(int argc, char* argv[]){
     double m_norm;
     cxxblas::nrm2(n_t*n_c, &M.data()[0], 1, m_norm);
     m_norm *= m_norm/n_c;
+
+    std::random_device rd;
+    std::mt19937 generator(rd());
+
     int iter_i = 0;
     #pragma omp parallel for default(shared) private(r_s, x) collapse(2) \
     num_threads(n_cpu)
     for (r_s = 0; r_s<n_Kfold; ++r_s){
         for (x = 0; x< n_alpha ; ++x){
             double alpha = alpha_real(x+1);
-            std::vector<int> sensor_list;
-            for (int y=0; y< n_c;y++)
-                sensor_list.push_back(y);
+            std::vector<int> sensor_list(n_c);
+            std::iota(sensor_list.begin(),sensor_list.end(),0);
+            std::shuffle(sensor_list.begin(),sensor_list.end(),generator);
+            std::vector<int>::iterator fold = sensor_list.begin();
             double error_cv_alp = 0.0;
             for (int i=0; i<Kfold; i++){
                 Maths::DMatrix J(n_t_s, n_s);
                 Maths::DMatrix Acoef(n_s, n_s*m_p);
                 Maths::IVector Active(n_s);
+
                 std::vector<int> sensor_kfold;
-                int set = block;
-                if (i == Kfold-1)
-                    set = n_c - (Kfold-1)*block;
-                for (int j=0;j<set;j++){
-                    int n_c_i = RANDOM(sensor_list.size()-1);//std::rand() % sensor_list.size();
-                    sensor_kfold.push_back(sensor_list[n_c_i]);
-                    sensor_list.erase(sensor_list.begin() + n_c_i);
-                }
-                std::sort(sensor_kfold.begin(), sensor_kfold.end());
+                const unsigned set = (std::distance(fold,sensor_list.end())>=block) ? block : std::distance(fold,sensor_list.end());
+                std::vector<int>::iterator fold_end = fold+set;
+                std::sort(fold, fold_end);
+                for (std::vector<int>::iterator kk=fold;kk!=fold_end;++kk)
+                    std::cerr << *kk << ' ';
+                std::cerr << endl;
                 int set_i = n_c - set;
                 Maths::DMatrix Mn(set_i, n_t);
                 Maths::DMatrix G_on(set_i, n_s);
                 Maths::DMatrix GA_n(set_i,n_s*m_p);
                 int z=1;
                 for (int j=0; j<n_c; j++){
-                    if (not (std::find(sensor_kfold.begin(), sensor_kfold.end(), j) 
-                        != sensor_kfold.end())){
+                    if (not (std::find(fold, fold_end, j) != fold_end)){
                         Mn(z, _) = M(j+1, _);
                         GA_n(z, _) = GA_initial(j+1, _);
                         G_on(z, _) = G_o(j+1, _);
@@ -243,14 +245,14 @@ int main(int argc, char* argv[]){
                 &Acoef.data()[0], &Active.data()[0], use_mxne, true);
                 Maths::DMatrix  Mcomp(set, n_t);
                 for (int k =0;k<set;k++)
-                    Mcomp(k+1, _) = M(sensor_kfold[k]+1, _);
+                    Mcomp(k+1, _) = M(*(fold+k)+1, _);
                 double cv_k;
                 cxxblas::nrm2(n_t*set, &Mcomp.data()[0], 1, cv_k);
                 if (n_s_e > 0){
                     Maths::DMatrix Gx(set, n_s_e);
                     for (int t =0;t<n_s_e;++t)
                         for (int y=0;y<set;++y)
-                            Gx(y+1, t+1) = G_o(sensor_kfold[y]+1, Active(t+1)+1);
+                            Gx(y+1, t+1) = G_o(*(fold+y)+1, Active(t+1)+1);
                     Maths::DMatrix GA_es(set, n_s_e);
                     Maths::DMatrix X(n_t_s, n_s_e);
                     Maths::DMatrix GA(set, n_s_e);
