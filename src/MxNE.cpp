@@ -47,7 +47,7 @@ MxNE::MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
 MxNE::~MxNE(){
     }
 double MxNE::absmax(const Maths::DVector &X) const {
-    // compute max(abs(X))
+    // compute max(abs(X)) for i in [1, length(dX)]
     double si = X(1);
     for (int i = 2;i <= n_t_s; ++i){
         double s = std::abs(X(i));
@@ -84,8 +84,17 @@ void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
 
 void MxNE::Compute_dX(const Maths::DMatrix &G, Maths::DMatrix &R, Maths::DVector &X,
     const int n_source) const {
-    // compute the update of X i.e. X^{i+1} = X^{i} + mu dX for source with an 
+    /* compute the update of X i.e. X^{i+1} = X^{i} + mu dX for source with an 
     // indice n_source
+    * where dX = G^T|_n_source x R;
+    * Input:
+    *       G: (n_c x (m_p x n_s)) a matrix containg the dynamic lead field matrix
+    *       R: (n_c x n_t) a matrix containing the residual between the MEG/EEG 
+    *           measurements and the reconstructed one.
+    *       n_source: the source index 
+    * Output:
+    *       dX: (n_t_s) a vector containg GtR that correspends to n_source.
+    */
     using namespace flens;
     Underscore<Maths::DMatrix::IndexType> _;
     Maths::DMatrix GtR(m_p, n_t);
@@ -94,7 +103,7 @@ void MxNE::Compute_dX(const Maths::DMatrix &G, Maths::DMatrix &R, Maths::DVector
     GtR = transpose(Gx)*R;
     for (int j = 0; j < n_t; ++j){
         for (int k = 0;k < m_p; ++k) 
-            X.data()[k + j] += GtR(k+1, j+1);//GtR.data()[j * m_p + k];
+            X.data()[k + j] += GtR(k+1, j+1);
     }
 }
 
@@ -102,11 +111,12 @@ void MxNE::update_r(const Maths::DMatrix &G_reorder, const Maths::DVector &dX,
     Maths::DMatrix &R, const int n_source) const {
     // recompute the residual for each updated source, s, of indice n_source
     // activation R = R + G_s * (X^{i-1} - X^i) = R = R - G_s * ( X^i - X^{i-1})
-    for (int j = 0; j < n_t; ++j)
-        cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans, cxxblas::NoTrans, n_c,
-        1, m_p, 1.0, &G_reorder.data()[n_source * n_c * m_p], n_c,
-        &dX.data()[j], m_p, 1.0, &R.data()[j*n_c], n_c);
-
+    using namespace flens;
+    Underscore<Maths::DMatrix::IndexType> _;
+    Maths::DMatrix Gs(n_c, m_p);
+    Gs = G_reorder(_, _(n_source*m_p+1, (n_source + 1)*m_p));
+    for (int j = 1; j <= m_p; ++j)
+        R += Gs(_, j)*transpose(dX(_(j,j+n_t-1)));
 }
 
 void MxNE::Compute_GtR(const Maths::DMatrix &G, const Maths::DMatrix &Rx,
@@ -124,7 +134,17 @@ void MxNE::Compute_GtR(const Maths::DMatrix &G, const Maths::DMatrix &Rx,
 }
 
 double MxNE::Compute_alpha_max(const Maths::DMatrix &G, const Maths::DMatrix &M) const{
-    //double *GtM = new double [n_s*m_p*n_t];
+    /* a function used to compute the alpha_max which correspend to the minimum
+    // alpha that results to an empty active set of regions/sources.
+    // Input:
+    //       G: (n_cx(m_pxn_s)) a matrix that contain dynamic gain matrix i.e. 
+    //           G(lead field)x MVAR matrix A.
+    //       M: (n_cxn_t) a matrix that contain the EEG and or MEG measurements.
+    // Output:
+    //       norm_GtM: a double scaler which correspend to alpha_max = 
+    //                 norm_inf(norm_2(G^TM)).
+    //
+    * */
     using namespace flens;
     using namespace std;
     double norm_GtM = 0.0;
@@ -136,33 +156,37 @@ double MxNE::Compute_alpha_max(const Maths::DMatrix &G, const Maths::DMatrix &M)
         if (GtM_axis1norm > norm_GtM)
             norm_GtM = GtM_axis1norm;
     }
-    //delete[] GtM;
     return norm_GtM;
 }
 
 void MxNE::Compute_Me(const Maths::DMatrix &G, const Maths::DMatrix &J,
         Maths::DMatrix &Me)const{
-    // This function compute the multiplication of G (gainxMAR model) by 
+    /* This function compute the multiplication of G (gainxMAR model) by 
     // The estimated brain activity J i.e. explained data
     //   Input:
     //         G (n_c x (n_s x m_p)): Gain x [A1, .., Ap] reordered 
     //         J (n_s x n_t_s): residual matrix (M-GJ)
     //   Output:
     //          Me : ((n_t x n_s)
+    */
+    using namespace flens;
+    Underscore<Maths::DMatrix::IndexType> _;
+    Maths::DMatrix Gs(n_c, m_p);
     Me = 0;
-    for(int i=0;i<n_s; ++i)
-        for(int j=0;j<n_t; ++j)
-            cxxblas::gemm(cxxblas::ColMajor,cxxblas::NoTrans, cxxblas::NoTrans,
-            n_c, 1, m_p, 1.0, &G.data()[i*n_c*m_p], n_c, &J.data()[i*n_t_s + j], m_p, 1.0,
-            &Me.data()[j*n_c], n_c);
+    for(int i=0;i<n_s; ++i){
+        Gs = G(_, _(i*m_p+1, (i + 1)*m_p));
+        for(int j=1;j<=m_p; ++j)
+            Me += Gs(_, j) * transpose(J(_(j, j + n_t - 1), i+1));
+    }
 }
 
 double MxNE::duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,
     Maths::DMatrix &J, Maths::DMatrix &R, double alpha) const {
-    // compute the duality gap for mixed norm estimate gap = Fp-Fd;
-    //double *GtR=new double [n_s*m_p*n_t];
+    /* compute the duality gap for mixed norm estimate gap = Fp-Fd;
+    // between the primal and dual functions. Check reference papers for more
+    // details.
+    */
     Maths::DMatrix GtR(n_t, m_p*n_s);
-    //std::fill(&GtR[0],&GtR[n_s*m_p*n_t], 0.0);
     Compute_GtR(G, R, GtR);
     double norm_GtR = 0.0;
     for (int ii =0; ii < n_s; ii++){
@@ -191,7 +215,6 @@ double MxNE::duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,
         cxxblas::nrm2(n_t_s, &J.data()[i*n_t_s], 1, r);
         l21_norm += r;
     }
-    //delete[] GtR;
     gap += alpha * l21_norm - s * ry_sum;
     return gap;
 }
@@ -199,10 +222,11 @@ double MxNE::duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,
 int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     Maths::DMatrix &J, double alpha, int n_iter, double &dual_gap_,
     double &tol, bool initial) const {
-    // Compute the mixed norm estimate i.e.
+    /* Compute the mixed norm estimate i.e.
     // Objective F(X) = \sum_{t=1-T}||M_t-sum_i{1-p} G_i X_{t-i}|| +
     //                                                         alpha ||X||_{21}
     // check reference papers
+    */
     using namespace flens;
     using namespace std;
     Underscore<Maths::DMatrix::IndexType> _;
@@ -213,7 +237,7 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     R = M;
     cxxblas::nrm2(n_t*n_c, &M.data()[0], 1, n_x);
     Compute_mu(GA, mu);
-    tol = d_w_tol*n_x;//*n_x;
+    tol = d_w_tol*n_x;
     dual_gap_ = 0.0;
     if (not initial)
         J = 0.0;
@@ -232,7 +256,6 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
         for (int i = 0; i < n_s; ++i){
             Maths::DVector dX(n_t_s);
             Maths::DVector wii(n_t_s);
-            Maths::DVector Js(n_t_s);
             wii = J(_, i+1);
             Compute_dX(GA, R, dX, i);
             J(_, i+1) += mu(i+1)*dX;
@@ -243,10 +266,9 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
             if (s_!= 0.0)
                 s_t = std::max(1.0 - mu_alpha(i+1)/s_, 0.0);
             J(_, i+1) *= s_t;
-            wii -= J(_, i+1); // wii = X^i - X^{i-1}
-            Js = J(_, i+1);
+            wii -= J(_, i+1); // wii = X^{i-1} - X^i
             d_w_ii = absmax(wii);
-            W_ii_abs_max = absmax(Js);
+            W_ii_abs_max = absmax(J(_, i+1));
             if (d_w_ii != 0.0)
                 update_r(GA, wii, R, i);
             if (d_w_ii > d_w_max)
@@ -255,22 +277,19 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
                 w_max = W_ii_abs_max;
         }
         if ((w_max == 0.0) || (d_w_max / w_max <= d_w_tol) || (ji == n_iter-1)){
-            dual_gap_ = duality_gap(GA, M, J,R, alpha);
+            dual_gap_ = duality_gap(GA, M, J, R, alpha);
             if (dual_gap_ <= tol)
                 break;
         }
     }
     if (verbose){
-        if (dual_gap_ > tol){
+        if (dual_gap_ > tol)
             printf("\n Objective did not converge, you might want to increase");
-            printf("\n the number of iterations (%d)", n_iter);
-            printf("\n Duality gap = %.2e | tol = %.2e \n", dual_gap_, tol);
-        }
-        else{
+        else
             printf("\n Objective converges");
-            printf("\n the number of iterations (%d)", ji+1);
-            printf("\n Duality gap = %.2e | tol = %.2e \n", dual_gap_, tol);
-        }
+
+        printf("\n the number of iterations (%d)", ji+1);
+        printf("\n Duality gap = %.2e | tol = %.2e \n", dual_gap_, tol);
     }
     return ji+1;
 }
