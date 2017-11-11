@@ -120,16 +120,24 @@ int main(int argc, char* argv[]){
     d_w_tol, mvar_th, verbose);
     n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, &Acoef.data()[0],
     &Active.data()[0], use_mxne, false);
-    DVector W(n_s);
-    Weight_MVAR(J, W);
-    double w_max = absf(W);
-    cxxblas::scal(n_s, 1.0/w_max, &W.data()[0], 1);
-    for (int i=0;i<n_s*m_p; i++){
-        int s = i%n_s;
-        cxxblas::scal(n_s, W.data()[s], &Acoef.data()[i*n_s], 1);
-    }
-    _RWMat.n_s = n_s;
     const char *save_path = argv[5];
-    _RWMat.WriteData(save_path, J, Acoef, Active, W);
+    if (n_s != 0){
+        DVector W(n_s);
+        Weight_MVAR(J, W);
+        double w_max = absf(W);
+        cxxblas::scal(n_s, 1.0/w_max, &W.data()[0], 1);
+        for (int i=0;i<n_s*m_p; i++){
+            int s = i%n_s;
+            cxxblas::scal(n_s, W.data()[s], &Acoef.data()[i*n_s], 1);
+        }
+        _RWMat.n_s = n_s;
+        _RWMat.WriteData(save_path, J, Acoef, Active, W);
+    }
+    else{
+        printf("***********************************************************\n");
+        printf("%s was not created \n", save_path);
+        printf("                         # active regions/sources = %d\n", n_s);
+        printf("***********************************************************\n");
+    }
     return 0;
 }
