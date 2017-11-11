@@ -146,9 +146,7 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
     // estimate results are written in VAR.
     using namespace flens;
     using namespace std;
-    typedef GeMatrix<FullStorage<double> >   GeMatrix;
-    typedef typename GeMatrix::IndexType     IndexType;
-    typedef DenseVector<Array<double> >      DenseVectord;
+    typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
     int n_x = n_t_s - 2*m_p;
     for (int source = 0; source < n_s; ++source){
@@ -158,34 +156,35 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
                 ind_X.push_back(j);
         }
         int n_connect = ind_X.size();
-        GeMatrix A(n_x, n_connect*m_p);
-        GeMatrix A_(n_connect*m_p, n_x);
+        Maths::DMatrix A(n_x, n_connect*m_p);
+        Maths::DMatrix A_(n_connect*m_p, n_x);
         int ixy = n_connect*m_p;
-        DenseVectord y(std::max(n_x, ixy));
+        Maths::DVector y(std::max(n_x, ixy));
         for (int j = 0;j < n_x; ++j){
             for (int l=0;l < m_p; ++l){
                 int x = l*n_connect;
                 int m = j + l + m_p;
                 for (int k = 0;k < n_connect; k++){
                     A(j+1, k+1+x)= S[ind_X[k]*n_t_s + m];
-                    A_(k+1+x, j+1) = A(j+1, k+1+x);
+                    //A_(k+1+x, j+1) = A(j+1, k+1+x);
                 }
             }
             y(j+1) = S[source*n_t_s + 2*m_p + j];
         }
-        DenseVectord solution(ixy);
+        A_ = transpose(A);
+        Maths::DVector solution(ixy);
         if (n_connect > 1){
-            GeMatrix     ATA(ixy, ixy);
-            GeMatrix     ATA2(ixy, ixy);
+            Maths::DMatrix     ATA(ixy, ixy);
+            Maths::DMatrix     ATA2(ixy, ixy);
             ATA = A_*A;
             ATA2 = A_*A;
-            GeMatrix L(ixy, ixy);
+            Maths::DMatrix L(ixy, ixy);
             for (int i=0;i<ixy; ++i)
                 L(i+1, i+1) = 1.0;
             lapack::ls(NoTrans, ATA2, L);
-            GeMatrix Check(ixy, ixy);
+            Maths::DMatrix Check(ixy, ixy);
             Check = ATA*L;
-            DenseVectord ATB(ixy);
+            Maths::DVector ATB(ixy);
             cxxblas::gemm(cxxblas::ColMajor,cxxblas::Trans, cxxblas::NoTrans,
             ixy, 1, n_x, 1.0, &A.data()[0], n_x, &y.data()[0], n_x, 0.0,
             &ATB.data()[0], ixy);
@@ -308,7 +307,7 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
             n_s = 0;
             if (verbose)
                 printf("No active source. You may decrease alpha = %2e \n", alpha);
-            break;
+            return 0;
         }
         Jtmp = 0;
         for(int i = 0;i < n_s_x; ++i){
@@ -352,4 +351,3 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
     delete[] GA_i_;
     return n_s;
 }
-
