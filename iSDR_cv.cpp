@@ -220,12 +220,9 @@ int main(int argc, char* argv[]){
                 Maths::IVector Active(n_s);
 
                 std::vector<int> sensor_kfold;
-                const unsigned set = (std::distance(fold,sensor_list.end())>=block) ? block : std::distance(fold,sensor_list.end());
+                const int set = (i!=Kfold-1) ? block : std::distance(fold,sensor_list.end());
                 std::vector<int>::iterator fold_end = fold+set;
                 std::sort(fold, fold_end);
-                for (std::vector<int>::iterator kk=fold;kk!=fold_end;++kk)
-                    std::cerr << *kk << ' ';
-                std::cerr << endl;
                 int set_i = n_c - set;
                 Maths::DMatrix Mn(set_i, n_t);
                 Maths::DMatrix G_on(set_i, n_s);
@@ -268,6 +265,7 @@ int main(int argc, char* argv[]){
                 }
                 cv_k *= cv_k/set;
                 error_cv_alp += cv_k;
+                fold += set;
             }
             #pragma omp atomic
             iter_i += 1;
