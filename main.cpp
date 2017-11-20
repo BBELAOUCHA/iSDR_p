@@ -52,8 +52,9 @@ void printHelp(){
 void print_args(const int argc,char* argv[]) {
     for (int i=0;i<argc;++i)
         std::cerr << argv[i] << ' ';
-        std::cerr << std::endl;
-    }
+    std::cerr << std::endl;
+}
+
 void print_param(int n_s, int n_t, int n_c, int m_p, double alpha, double d_w_tol){
     printf(" N of sensors %d\n", n_c);
     printf(" N of sources %d\n", n_s);
