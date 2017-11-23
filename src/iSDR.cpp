@@ -235,7 +235,7 @@ std::vector<int> iSDR::Zero_non_zero(const Maths::DMatrix &S)const{
 }
 
 int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M, Maths::DMatrix &G,
-                     Maths::DMatrix &J, double * Acoef, int * Active, bool initial, bool with_alpha){
+                     Maths::DMatrix &J, Maths::DMatrix &Acoef, Maths::IVector &Active, bool initial, bool with_alpha){
     // Core function to compute iteratively the MxNE and MVAR coefficients.
     // Input:
     //       G_o (n_c x n_s): gain matrix M = G_o x J
@@ -256,8 +256,6 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
         v1.push_back(i);
     std::vector<int> v2;
     Maths::DMatrix Gx(n_c, n_s*m_p);
-    Maths::DMatrix G_o_x(n_c, n_s);
-    G_o_x = G_o;
     Reorder_G(G, Gx);// reorder gain matrix
     double * G_o_ptr = new double[n_c*n_s];
     int * SC_ptr = new int [n_s*n_s];
@@ -307,7 +305,7 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
             n_s = 0;
             if (verbose)
                 printf("No active source. You may decrease alpha = %2e \n", alpha);
-            return 0;
+            break;
         }
         Jtmp = 0;
         for(int i = 0;i < n_s_x; ++i){
@@ -330,8 +328,8 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
         G_times_A(G_tmp, MVAR, Gt);
         GA_removeDC(Gt);
         cxxblas::copy(n_c*n_s*m_p, &Gt.data()[0], 1, &GA_i_[0], 1);
-        cxxblas::copy(n_s*n_s*m_p, &MVAR.data()[0], 1, &Acoef[0], 1);
-        cxxblas::copy(n_s, &v1[0], 1, &Active[0], 1);
+        cxxblas::copy(n_s*n_s*m_p, &MVAR.data()[0], 1, &Acoef.data()[0], 1);
+        cxxblas::copy(n_s, &v1[0], 1, &Active.data()[0], 1);
         _MxNE.n_s = n_s;
         Maths::DMatrix Me(n_c, n_t);
         _MxNE.Compute_Me(Gt, Jtmp, Me);

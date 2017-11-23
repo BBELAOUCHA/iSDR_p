@@ -119,8 +119,8 @@ int main(int argc, char* argv[]){
     double mvar_th = 1e-2;
     iSDR _iSDR(n_s, n_c, m_p, n_t, alpha, n_iter_mxne, n_iter_iSDR,
     d_w_tol, mvar_th, verbose);
-    n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, &Acoef.data()[0],
-    &Active.data()[0], use_mxne, false);
+    n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, Acoef,
+    Active, use_mxne, false);
     const char *save_path = argv[5];
     if (n_s != 0){
         DVector W(n_s);

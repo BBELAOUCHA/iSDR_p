@@ -69,7 +69,7 @@ class iSDR {
             double n_iter_iSDR, double d_w_tol, double mar_th, bool ver);
         ~iSDR();
         int iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M, Maths::DMatrix &G,
-                     Maths::DMatrix &J, double * Acoef, int * Active, bool initial, bool with_alpha);
+                     Maths::DMatrix &J, Maths::DMatrix &Acoef, Maths::IVector &Active, bool initial, bool with_alpha);
         void Reorder_G(const Maths::DMatrix &GA, Maths::DMatrix &G_reorder) const;
         void Reduce_G(const double *G, Maths::DMatrix &G_n, std::vector<int> ind) const;
         void G_times_A(const Maths::DMatrix &G, const Maths::DMatrix &A,
