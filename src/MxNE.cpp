@@ -247,30 +247,30 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
         R -= Me;
     }
     Maths::DVector mu_alpha(n_s);
-    for (int i=0;i<n_s;i++)
-        mu_alpha(i+1) = mu(i+1)*alpha;
+    for (int i=1;i<=n_s;i++)
+        mu_alpha(i) = mu(i)*alpha;
     int ji;
     for (ji = 0; ji < n_iter; ji++){
         w_max = 0.0;
         d_w_max = 0.0;
-        for (int i = 0; i < n_s; ++i){
+        for (int i = 1; i <= n_s; ++i){
             Maths::DVector dX(n_t_s);
             Maths::DVector wii(n_t_s);
-            wii = J(_, i+1);
-            Compute_dX(GA, R, dX, i);
-            J(_, i+1) += mu(i+1)*dX;
+            wii = J(_, i);
+            Compute_dX(GA, R, dX, i-1);
+            J(_, i) += mu(i)*dX;
             double nn;
-            cxxblas::nrm2(n_t_s, &J.data()[i*n_t_s], 1, nn);
+            cxxblas::nrm2(n_t_s, &J.data()[(i-1)*n_t_s], 1, nn);
             double s_t = 0.0;
-            double s_ = std::max(nn, mu_alpha(i+1));
+            double s_ = std::max(nn, mu_alpha(i));
             if (s_!= 0.0)
-                s_t = std::max(1.0 - mu_alpha(i+1)/s_, 0.0);
-            J(_, i+1) *= s_t;
-            wii -= J(_, i+1); // wii = X^{i-1} - X^i
+                s_t = std::max(1.0 - mu_alpha(i)/s_, 0.0);
+            J(_, i) *= s_t;
+            wii -= J(_, i); // wii = X^{i-1} - X^i
             d_w_ii = absmax(wii);
-            W_ii_abs_max = absmax(J(_, i+1));
+            W_ii_abs_max = absmax(J(_, i));
             if (d_w_ii != 0.0)
-                update_r(GA, wii, R, i);
+                update_r(GA, wii, R, i-1);
             if (d_w_ii > d_w_max)
                 d_w_max = d_w_ii;
             if (W_ii_abs_max > w_max)
