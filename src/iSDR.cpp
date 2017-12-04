@@ -1,8 +1,8 @@
 #include "iSDR.h"
-#include <iostream>
-#include <stdio.h>
-#include <ctime>
-#include <time.h>
+//#include <iostream>
+//#include <stdio.h>
+//#include <ctime>
+//#include <time.h>
 #include "Matrix.h"
 ////============================================================================
 ////============================================================================
@@ -208,13 +208,17 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
 }
 
 void iSDR::GA_removeDC(Maths::DMatrix &GA) const {
+    using namespace flens;
+    typedef typename Maths::DMatrix::IndexType     IndexType;
+    const Underscore<IndexType>  _;
     for (int i=0;i<n_s; ++i){
         double x = 0;
         for (int j=0;j<n_c*m_p; ++j)
             x += GA.data()[i*n_c*m_p + j];
         x /= n_c*m_p;
-        for (int j=0;j<n_c*m_p; ++j)
-             GA.data()[i*n_c*m_p + j]-= x;
+        GA(_, _(i*m_p+1, (i+1)*m_p)) -= x;
+        cxxblas::nrm2(n_c*m_p, &GA.data()[i*n_c*m_p], 1, x);
+        GA(_, _(i*m_p+1, (i+1)*m_p)) /= x;
     }
 }
 
