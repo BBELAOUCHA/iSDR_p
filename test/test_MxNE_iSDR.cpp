@@ -353,6 +353,28 @@ int test_MxNE(){
     return 1;
 }
 
+int test_Depth_Comp(){
+    int n_s = 3; int n_c = 2; int m_p = 3; int n_t = 100; double d_w_tol=1e-6; 
+    iSDR _iSDR(n_s, n_c, m_p, n_t, 0.0, 1, 1, d_w_tol, 0.001, false);
+    Maths::DMatrix GA(n_c, n_s*m_p);
+    for(int j=0;j<n_s; ++j){
+           for (int i =0; i<n_c; ++i){
+               for(int k=0;k<m_p;k++)
+                GA(i+1,  j*m_p + 1 + k) = j*2.0+1.0;
+           }
+    }
+    _iSDR.Depth_comp(GA);
+    for (int i=0;i<n_s;i++){
+        double n;
+        cxxblas::nrm2(n_c*m_p, &GA.data()[i*n_c*m_p], 1, n);
+        if ((int)n != 1){
+            std::cout<<i<<" x "<<n<<std::endl;
+            return 0;
+        }
+    }
+    return 1;
+}
+
 int main(){
     
     if (test_Compute_mu())
@@ -398,6 +420,10 @@ int main(){
          printf( "iSDR.Zero_non_zero ... Ok\n");
     else
         printf( "iSDR.Zero_non_zero ... Failed\n");
+    if (test_Depth_Comp())
+         printf( "iSDR.Depth_comp    ... Ok\n");
+    else
+        printf( "iSDR.Depth_Comp    ... Failed\n");
     //if (test_MxNE())
     //    printf( "MxNE.MxNE_solve   ... Ok\n");
     //else
