@@ -61,7 +61,7 @@ void print_param(int n_s, int n_t, int n_c, int m_p, double alpha, double d_w_to
     printf(" N of samples %d\n", n_t);
     printf(" MAR model    %d\n", m_p);
     printf(" iSDR tol   %.3e\n", d_w_tol);
-    printf(" iSDR (p : =  %d with alpha : = %.2f%%\n", m_p, alpha);
+    printf(" iSDR (p : =  %d with alpha : = %.2f%%)\n", m_p, alpha);
 }
 
 int main(int argc, char* argv[]){
