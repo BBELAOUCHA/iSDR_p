@@ -375,6 +375,23 @@ int test_Depth_Comp(){
     return 1;
 }
 
+int test_Phi_TransitionMatrix(){
+    int n_s = 2; int n_c = 2; int m_p = 2; int n_t = 100; double d_w_tol=1e-6; 
+    iSDR _iSDR(n_s, n_c, m_p, n_t, 0.0, 1, 1, d_w_tol, 0.001, false);
+    Maths::DMatrix A(n_s, n_s*m_p);
+    A = 0.432, 0.242 , 0.476, 0.122,
+        -0.241, 0.427,-0.124, 0.466;
+    double EigMax=0;
+    EigMax=_iSDR.Phi_TransitionMatrix(A);
+    if (std::abs(EigMax-0.98634)> 1e-3)
+        return 0;
+    A *= 1/(EigMax*EigMax);
+    EigMax=_iSDR.Phi_TransitionMatrix(A);
+    if (std::abs(EigMax-1.00454) > 1e-3)
+        return 0;
+    return 1;
+}
+
 int main(){
     
     if (test_Compute_mu())
@@ -424,9 +441,9 @@ int main(){
          printf( "iSDR.Depth_comp    ... Ok\n");
     else
         printf( "iSDR.Depth_Comp    ... Failed\n");
-    //if (test_MxNE())
-    //    printf( "MxNE.MxNE_solve   ... Ok\n");
-    //else
-    //    printf( "MxNE.MxNE_solve   ... Failed\n");
+    if (test_Phi_TransitionMatrix())
+        printf( "iSDR.Phi_TransitionMatrix... Ok\n");
+    else
+        printf( "iSDR.Phi_TransitionMatrix... Failed\n");
     return 0;
 }

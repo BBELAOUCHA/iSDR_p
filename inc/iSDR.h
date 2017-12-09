@@ -80,4 +80,6 @@ class iSDR {
                     double * VAR) const;
         std::vector<int> Zero_non_zero(const Maths::DMatrix &S)const;
         void GA_removeDC(Maths::DMatrix &GA) const;
+        void Depth_comp(Maths::DMatrix &GA) const;
+        double Phi_TransitionMatrix(Maths::DMatrix &MVAR) const;
 };

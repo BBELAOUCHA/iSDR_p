@@ -1,4 +1,5 @@
 #include "iSDR.h"
+//#include <cxxstd/iostream.h>
 //#include <iostream>
 //#include <stdio.h>
 //#include <ctime>
@@ -192,15 +193,25 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
         }
         else{
             lapack::ls(NoTrans, A, y);
-            for (int q=0;q<m_p;q++)
-                solution(q+1) = y(q+1);
+            for (int q=1;q<=m_p;++q)
+                solution(q) = y(q);
         }
+        /*double max_z = 0;
+        for (int q=1;q<=ixy;++q){
+            double qz = std::abs(solution(q));
+            if (qz > max_z){
+                max_z = qz; 
+            }
+        }
+        
+        double threshold = tol*max_z;
+        * */
         for (int j=0;j<m_p; ++j){
             int block = j*n_s*n_s;
             for (int k=0;k<n_connect; ++k){
                 int s = ind_X[k];
-                if (std::abs(solution(k+j*n_connect + 1)) < tol)
-                    solution(k+j*n_connect + 1) = 0;
+                //if (std::abs(solution(k+j*n_connect + 1)) < threshold)
+                //    solution(k+j*n_connect + 1) = 0;
                 VAR[source+s*n_s + block] = solution(k+j*n_connect + 1);
             }
         }
@@ -217,6 +228,15 @@ void iSDR::GA_removeDC(Maths::DMatrix &GA) const {
             x += GA.data()[i*n_c*m_p + j];
         x /= n_c*m_p;
         GA(_, _(i*m_p+1, (i+1)*m_p)) -= x;
+    }
+}
+
+void iSDR::Depth_comp(Maths::DMatrix &GA) const {
+    using namespace flens;
+    typedef typename Maths::DMatrix::IndexType     IndexType;
+    const Underscore<IndexType>  _;
+    for (int i=0;i<n_s; ++i){
+        double x;
         cxxblas::nrm2(n_c*m_p, &GA.data()[i*n_c*m_p], 1, x);
         GA(_, _(i*m_p+1, (i+1)*m_p)) /= x;
     }
@@ -300,6 +320,7 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
         Re[1] = ii;
         Re[0] = n_s_x;
         if (n_s == n_s_x){
+            J(_, _(1, n_s)) = J_i;
             n_s = n_s_x;
             if (verbose)
                 printf("Same active set (%d) is detected in 2 successive iterations.\n", n_s);
@@ -328,9 +349,13 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
         Maths::DMatrix J_(n_t_s, n_s);
         cxxblas::copy(n_t_s*n_s, &Jtmp.data()[0], 1, &J_.data()[0], 1);
         A_step_lsq(&J_.data()[0], &SC_ptr[0], mar_th, &MVAR.data()[0]);
+        double EigMax = Phi_TransitionMatrix(MVAR);
+        //MVAR *= 1/(EigMax*1*(1+1e-6));
+        //EigMax = Phi_TransitionMatrix(MVAR);
         Maths::DMatrix Gt(n_c, n_s*m_p);
         G_times_A(G_tmp, MVAR, Gt);
-        GA_removeDC(Gt);
+        //GA_removeDC(Gt);
+        //Depth_comp(Gt);
         cxxblas::copy(n_c*n_s*m_p, &Gt.data()[0], 1, &GA_i_[0], 1);
         cxxblas::copy(n_s*n_s*m_p, &MVAR.data()[0], 1, &Acoef.data()[0], 1);
         cxxblas::copy(n_s, &v1[0], 1, &Active.data()[0], 1);
@@ -340,8 +365,8 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
         Me -= M;
         cxxblas::nrm2(n_t*n_c, &Me.data()[0], 1, n_Me);
         if (verbose)
-            std::cout<<"Number of active regions/sources = "<<n_s
-            <<std::endl;
+            std::cout<<"Number of active regions/sources = "<<n_s<<std::endl;
+            std::cout<<"Max Eigenvalue after norm "<< EigMax <<std::endl;
         if ((n_Me/n_M) < M_tol){
             std::cout<<"Stop iSDR: small residual = "<<(n_Me/n_M)*100.<<" %"
             <<std::endl;
@@ -352,4 +377,35 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
     delete[] SC_ptr;
     delete[] GA_i_;
     return n_s;
+}
+
+
+double iSDR::Phi_TransitionMatrix(Maths::DMatrix &MVAR)const{
+    using namespace flens;
+    using namespace std;
+    Underscore<Maths::DMatrix::IndexType> _;
+    int n_col = MVAR.numCols();
+    int ns = MVAR.numRows();
+    Maths::DMatrix Phi(n_col, n_col);
+    for (int i=0;i<m_p;++i){
+        int x = m_p-i-1;
+        int y = m_p-i;
+        Phi(_(1, ns), _(i*ns+1, (i+1)*ns)) = MVAR(_, _(x*ns+1, y*ns));
+    }
+    for (int i=ns+1;i<=m_p*ns;++i){
+        Phi(i, i-ns) = 1.0;
+    }
+    int n=n_s*m_p;
+    Maths::DMatrix   VL(n, n), VR(n, n);
+    Maths::DVector   wr(n), wi(n);
+    Maths::DVector   work;
+    lapack::ev(true, true, Phi, wr, wi, VL, VR, work);
+    double EigenMax = 0;
+    for (int i=1;i<=n;++i){
+        double a = wr(i)*wr(i) + wi(i)*wi(i);
+        double z = std::sqrt(a);
+        if (z > EigenMax)
+            EigenMax = z;
+    }
+    return EigenMax;
 }
