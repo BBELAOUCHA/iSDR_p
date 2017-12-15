@@ -32,9 +32,9 @@ public:
         long unsigned int n_s;
         ReadWriteMat(int n_sources, int n_sensors, int Mar_model, int n_samples);
         ~ReadWriteMat(){};
-        void ReadData(const char *file_path, Maths::DMatrix &G_o, Maths::DMatrix &GA,
+        int ReadData(const char *file_path, Maths::DMatrix &G_o, Maths::DMatrix &GA,
         Maths::DMatrix &R, Maths::IMatrix &SC) const;
         int WriteData(const char *file_path, Maths::DMatrix &S, Maths::DMatrix &mvar, Maths::IVector &A, 
                     Maths::DVector &w);
-        void Read_parameters(const char *file_path);
+        int Read_parameters(const char *file_path);
 };

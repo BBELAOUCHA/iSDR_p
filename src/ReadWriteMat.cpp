@@ -10,69 +10,83 @@ ReadWriteMat::ReadWriteMat(int n_sources, int n_sensors, int Mar_model, int n_sa
     this-> n_t_s = n_t + m_p - 1;
 }
 
-void ReadWriteMat::Read_parameters(const char *file_path){
+int ReadWriteMat::Read_parameters(const char *file_path){
     mat_t *matfp; // use matio to read the .mat file
     matvar_t *matvar;
     matfp = Mat_Open(file_path, MAT_ACC_RDONLY);
-    matvar = Mat_VarRead(matfp, "n_s") ;
-    const int *x = static_cast<const int*>(matvar->data);
-    n_s = x[0];
-    matvar = Mat_VarRead(matfp, "n_c") ;
-    x = static_cast<const int*>(matvar->data);
-    n_c = x[0];
-    matvar = Mat_VarRead(matfp, "n_t") ;
-    x = static_cast<const int*>(matvar->data);
-    n_t = x[0];
-    matvar = Mat_VarRead(matfp, "m_p") ;
-    x = static_cast<const int*>(matvar->data);
-    m_p = x[0];
-    n_t_s = n_t + m_p - 1;
+    if (matfp != NULL){
+        matvar = Mat_VarRead(matfp, "n_s") ;
+        const int *x = static_cast<const int*>(matvar->data);
+        n_s = x[0];
+        matvar = Mat_VarRead(matfp, "n_c") ;
+        x = static_cast<const int*>(matvar->data);
+        n_c = x[0];
+        matvar = Mat_VarRead(matfp, "n_t") ;
+        x = static_cast<const int*>(matvar->data);
+        n_t = x[0];
+        matvar = Mat_VarRead(matfp, "m_p") ;
+        x = static_cast<const int*>(matvar->data);
+        m_p = x[0];
+        n_t_s = n_t + m_p - 1;
+    }
+    else{
+        std::cerr<<file_path<<"  is not found"<<std::endl;
+        return 1;
+    }
+    return 0;
 }
-void ReadWriteMat::ReadData(const char *file_path, Maths::DMatrix &G_o, Maths::DMatrix &GA,
+int ReadWriteMat::ReadData(const char *file_path, Maths::DMatrix &G_o, Maths::DMatrix &GA,
                             Maths::DMatrix &R, Maths::IMatrix &SC) const {
     // read data from mat file
     mat_t *matfp; // use matio to read the .mat file
     matvar_t *matvar;
     matfp = Mat_Open(file_path, MAT_ACC_RDONLY);
-    matvar = Mat_VarRead(matfp, "GA") ;
-    const double *xData = static_cast<const double*>(matvar->data) ;
-    //#pragma omp parallel for
-    for(long unsigned int y = 0;y < n_s*m_p; ++y){
-        for (long unsigned int x = 0; x < n_c; ++x)
-            GA.data()[x + y*n_c] = xData[x + y*n_c]; 
-    }
+    if (matfp != NULL){
+        matvar = Mat_VarRead(matfp, "GA") ;
+        const double *xData = static_cast<const double*>(matvar->data) ;
+        //#pragma omp parallel for
+        for(long unsigned int y = 0;y < n_s*m_p; ++y){
+            for (long unsigned int x = 0; x < n_c; ++x)
+                GA.data()[x + y*n_c] = xData[x + y*n_c]; 
+        }
 
-    Mat_VarFree(matvar);
-    matvar = Mat_VarRead(matfp, "M") ;
-    const double *xData1 = static_cast<const double*>(matvar->data) ;
-    //#pragma omp parallel for
-    for(long unsigned int y = 0;y < n_t; ++y){
-        for (long unsigned int x = 0; x < n_c; ++x)
-            R.data()[x + y*n_c] = xData1[x+y*n_c];
-    }
-    Mat_VarFree(matvar);
-    matvar = Mat_VarRead(matfp, "G") ;
-    const double *xData_ = static_cast<const double*>(matvar->data) ;
-    //#pragma omp parallel for
-    for(long unsigned int y = 0;y < n_s; ++y){
-        for (long unsigned int x = 0; x < n_c; ++x)
-            G_o.data()[x + y*n_c] = xData_[x+y*n_c];
-    }
-    Mat_VarFree(matvar);
-    matvar = Mat_VarRead(matfp, "SC") ;
-    const double *xData2 = static_cast<const double*>(matvar->data) ;
-    //#pragma omp parallel for
-    for(long unsigned int y = 0;y < n_s; y++){
-        for (long unsigned int x = 0; x < n_s; x++)
-            SC.data()[x*n_s + y] = (int)xData2[x*n_s+y];
-    }
+        Mat_VarFree(matvar);
+        matvar = Mat_VarRead(matfp, "M") ;
+        const double *xData1 = static_cast<const double*>(matvar->data) ;
+        //#pragma omp parallel for
+        for(long unsigned int y = 0;y < n_t; ++y){
+            for (long unsigned int x = 0; x < n_c; ++x)
+                R.data()[x + y*n_c] = xData1[x+y*n_c];
+        }
+        Mat_VarFree(matvar);
+        matvar = Mat_VarRead(matfp, "G") ;
+        const double *xData_ = static_cast<const double*>(matvar->data) ;
+        //#pragma omp parallel for
+        for(long unsigned int y = 0;y < n_s; ++y){
+            for (long unsigned int x = 0; x < n_c; ++x)
+                G_o.data()[x + y*n_c] = xData_[x+y*n_c];
+        }
+        Mat_VarFree(matvar);
+        matvar = Mat_VarRead(matfp, "SC") ;
+        const double *xData2 = static_cast<const double*>(matvar->data) ;
+        //#pragma omp parallel for
+        for(long unsigned int y = 0;y < n_s; y++){
+            for (long unsigned int x = 0; x < n_s; x++)
+                SC.data()[x*n_s + y] = (int)xData2[x*n_s+y];
+        }
 
-    xData_ = NULL;
-    xData = NULL;
-    xData1 = NULL;
-    xData2 = NULL;
-    Mat_VarFree(matvar);
-    Mat_Close(matfp);
+        xData_ = NULL;
+        xData = NULL;
+        xData1 = NULL;
+        xData2 = NULL;
+        Mat_VarFree(matvar);
+        Mat_Close(matfp);
+    }
+    else{
+        std::cerr<<file_path<<" is not found"<<std::endl;
+        return 1;
+    }
+    return 0;
 }
 
 
@@ -104,7 +118,7 @@ int ReadWriteMat::WriteData(const char *file_path, Maths::DMatrix &S,
     size_t dims2[2] = {n_s,n_s*m_p};
     size_t dim1d[1] = {n_s};
     mat = Mat_Create(file_path,NULL);
-    if(mat){
+    if(mat != NULL){
         /* Estimated brain activation */
         matvar = Mat_VarCreate("S estimate",MAT_C_DOUBLE,MAT_T_DOUBLE,2, dims1,
             &mat1,0);
@@ -129,6 +143,7 @@ int ReadWriteMat::WriteData(const char *file_path, Maths::DMatrix &S,
     }
     else{
         printf("Failed to save results in %s", file_path);
+        printf("check if you have the righ to write there");
         return 1;
     }
     return 0;

@@ -91,16 +91,15 @@ int main(int argc, char* argv[]){
     double d_w_tol=atof(argv[4]);
     int re_use = atoi(argv[5]);
     const char *file_path = argv[1];
-
     int n_t_s = n_t + m_p - 1;
     ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
-    _RWMat.Read_parameters(file_path);
+    if (_RWMat.Read_parameters(file_path))
+        return 1;
     n_s = _RWMat.n_s;
     n_c = _RWMat.n_c;
     m_p = _RWMat.m_p;
     n_t = _RWMat.n_t;
     n_t_s = _RWMat.n_t_s;
-    //alpha *=n_c;
     if (verbose){
         print_param(n_s, n_t, n_c, m_p, alpha, d_w_tol);
         std::cout<< "Reading file: "<< file_path<<std::endl;
@@ -115,7 +114,8 @@ int main(int argc, char* argv[]){
     DMatrix J(n_t_s, n_s);
     DMatrix Acoef(n_s, n_s*m_p);
     IVector Active(n_s);
-    _RWMat.ReadData(file_path, G_o, GA_initial, M, SC);
+    if (_RWMat.ReadData(file_path, G_o, GA_initial, M, SC))
+        return 1;
     double mvar_th = 1e-2;
     iSDR _iSDR(n_s, n_c, m_p, n_t, alpha, n_iter_mxne, n_iter_iSDR,
     d_w_tol, mvar_th, verbose);
