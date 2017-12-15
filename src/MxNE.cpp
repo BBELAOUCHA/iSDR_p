@@ -252,7 +252,6 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     for (int i=1;i<=n_s;i++)
         mu_alpha(i) = mu(i)*alpha;
     int ji;
-    std::cout<<" Alpha value used: "<< alpha<<std::endl;
     for (ji = 0; ji < n_iter; ++ji){
         w_max = 0.0;
         d_w_max = 0.0;
@@ -269,7 +268,6 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
             if (s_!= 0.0)
                 s_t = std::max(1.0 - mu_alpha(i)/s_, 0.0);
             J(_, i) *= s_t;
-            cout<<i<<" Norm J: "<<nn << " scale "<< s_t<<endl;
             wii -= J(_, i); // wii = X^{i-1} - X^i
             d_w_ii = absmax(wii);
             W_ii_abs_max = absmax(J(_, i));

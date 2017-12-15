@@ -36,8 +36,6 @@ CV_iSDR::CV_iSDR( int Kfold, double d_w_tol, bool verbose, bool use_mxne){
     this-> Kfold = Kfold;
     this-> use_mxne = use_mxne;
 }
-CV_iSDR::~CV_iSDR(){
-    }
 void CV_iSDR::printProgress (double percentage){
     int val = (int) (percentage * 100);
     int lpad = (int) (percentage * PBWIDTH);
@@ -46,26 +44,25 @@ void CV_iSDR::printProgress (double percentage){
     fflush(stdout);
 }
 
-double CV_iSDR::Run_CV(Maths::DMatrix &M, Maths::DMatrix &G_o,
-    Maths::DMatrix &GA_initial, Maths::IMatrix &SC, Maths::DVector &ALPHA,
+double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
+    const Maths::DMatrix &GA_initial, const Maths::IMatrix &SC, const Maths::DVector &ALPHA,
     Maths::DVector &alpha_real, Maths::DMatrix &cv_fit_data){
-	using namespace flens;
-	typedef typename Maths::DMatrix::IndexType     IndexType;
+    using namespace flens;
+    typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
     int n_alpha = alpha_real.length();
     int n_c = M.numRows();
     int n_s = SC.numRows();
-	int n_t = M.numCols();
-	int m_p = (int) GA_initial.numCols()/n_s;
+    int n_t = M.numCols();
+    int m_p = (int) GA_initial.numCols()/n_s;
     int n_t_s = 0;
     n_t_s = n_t + m_p - 1;
-    //std::cout<<"n_s "<<n_s<<" n_c"<< n_c<<" n_t"<<n_t<<" n_t_s"<<n_t_s<<" m_p"<<m_p<<std::endl;
-	int n_iter_mxne = 10000;
-	int n_iter_iSDR = 100;
-	int n_Kfold = cv_fit_data.numCols();
-	double mvar_th = 1e-3;
-	int block = n_c / Kfold;
-	iSDR _iSDR(n_s, n_c, m_p, n_t, 1.0, n_iter_mxne, n_iter_iSDR, d_w_tol,
+    int n_iter_mxne = 10000;
+    int n_iter_iSDR = 100;
+    int n_Kfold = cv_fit_data.numCols();
+    double mvar_th = 1e-3;
+    int block = n_c / Kfold;
+    iSDR _iSDR(n_s, n_c, m_p, n_t, 1.0, n_iter_mxne, n_iter_iSDR, d_w_tol,
     mvar_th, verbose);
     Maths::DMatrix GA_reorder(n_c, n_s*m_p);
     _iSDR.Reorder_G(GA_initial, GA_reorder);
@@ -162,7 +159,8 @@ double CV_iSDR::Run_CV(Maths::DMatrix &M, Maths::DMatrix &G_o,
 }
 
 
-int CV_iSDR::WriteData(const char *file_path, Maths::DVector &alpha, Maths::DMatrix &cv_fit_data, double alpha_max){
+int CV_iSDR::WriteData(const char *file_path, const Maths::DVector &alpha,
+    const Maths::DMatrix &cv_fit_data, double alpha_max){
     /* This function write the results of the K-fold cross-validation into a
      * mat file.
      *      file_path: file name and location to where you wanna write results
@@ -196,7 +194,7 @@ int CV_iSDR::WriteData(const char *file_path, Maths::DVector &alpha, Maths::DMat
     size_t dim2d[1] = {(unsigned int)1};
     size_t dims2[2] = {(unsigned int)n_Kfold, (unsigned int)n_alpha};
     mat = Mat_Create(file_path, NULL);
-    if(mat){
+    if(mat != NULL){
         matvar = Mat_VarCreate("Alpha",MAT_C_DOUBLE,MAT_T_DOUBLE,1, dim1d,
         &vec1,0);
         Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
@@ -212,7 +210,8 @@ int CV_iSDR::WriteData(const char *file_path, Maths::DVector &alpha, Maths::DMat
         Mat_Close(mat);
     }
     else{
-        printf("Failed to save results in %s", file_path);
+        printf("Failed to save results in %s\n", file_path);
+        printf("Wrong path or you cannt write\n");
         return 1;
     }
     return 0;

@@ -258,8 +258,10 @@ std::vector<int> iSDR::Zero_non_zero(const Maths::DMatrix &S)const{
     return ind_x;
 }
 
-int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M, Maths::DMatrix &G,
-                     Maths::DMatrix &J, Maths::DMatrix &Acoef, Maths::IVector &Active, bool initial, bool with_alpha){
+int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
+    const Maths::DMatrix &M, const Maths::DMatrix &G, Maths::DMatrix &J,
+    Maths::DMatrix &Acoef, Maths::IVector &Active, bool initial,
+    bool with_alpha){
     // Core function to compute iteratively the MxNE and MVAR coefficients.
     // Input:
     //       G_o (n_c x n_s): gain matrix M = G_o x J
@@ -365,9 +367,10 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
         _MxNE.Compute_Me(Gt, Jtmp, Me);
         Me -= M;
         cxxblas::nrm2(n_t*n_c, &Me.data()[0], 1, n_Me);
-        if (verbose)
+        if (verbose){
             std::cout<<"Number of active regions/sources = "<<n_s<<std::endl;
             std::cout<<"Max Eigenvalue after norm "<< EigMax <<std::endl;
+        }
         if ((n_Me/n_M) < M_tol){
             std::cout<<"Stop iSDR: small residual = "<<(n_Me/n_M)*100.<<" %"
             <<std::endl;
