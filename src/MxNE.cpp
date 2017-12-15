@@ -58,8 +58,9 @@ double MxNE::absmax(const Maths::DVector &X) const {
 }
 
 void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
-    // compute the gradient step mu for each block coordinate i.e. Source
-    // mu = ||G_s||_F^{-1}
+    /* compute the gradient step mu for each block coordinate i.e. Source
+       mu = ||G_s||_F^{-1}
+    */
     int mp2 = m_p*m_p;
     using namespace flens;
     using namespace std;
@@ -82,10 +83,10 @@ void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
     }
 }
 
-void MxNE::Compute_dX(const Maths::DMatrix &G, Maths::DMatrix &R, Maths::DVector &X,
+void MxNE::Compute_dX(const Maths::DMatrix &G, const Maths::DMatrix &R, Maths::DVector &X,
     const int n_source) const {
     /* compute the update of X i.e. X^{i+1} = X^{i} + mu dX for source with an 
-    // indice n_source
+    * indice n_source
     * where dX = G^T|_n_source x R;
     * Input:
     *       G: (n_c x (m_p x n_s)) a matrix containg the dynamic lead field matrix
@@ -121,30 +122,31 @@ void MxNE::update_r(const Maths::DMatrix &G_reorder, const Maths::DVector &dX,
 
 void MxNE::Compute_GtR(const Maths::DMatrix &G, const Maths::DMatrix &Rx,
     Maths::DMatrix &GtR)const{
-    // This function compute the multiplication of G (gainxMAR model) by 
-    // The residual R
-    //   Input:
-    //         G (n_c x (n_s x m_p)): Gain x [A1, .., Ap] reordered 
-    //         R (n_c x n_t): residual matrix (M-GJ)
-    //   Output:
-    //          GtR : ((n_t x m_p) x n_s)
-    //   due to computation we compute RtG = transpose(GtR);
+    /* This function compute the multiplication of G (gainxMAR model) by 
+    * The residual R
+    *   Input:
+    *         G (n_c x (n_s x m_p)): Gain x [A1, .., Ap] reordered 
+    *         R (n_c x n_t): residual matrix (M-GJ)
+    *   Output:
+    *          GtR : ((n_t x m_p) x n_s)
+    *   due to computation reason, we compute RtG = transpose(GtR);
+    *   instead of G^TxR
+    */
     using namespace flens;
     GtR = transpose(Rx)*G;
 }
 
 double MxNE::Compute_alpha_max(const Maths::DMatrix &G, const Maths::DMatrix &M) const{
     /* a function used to compute the alpha_max which correspend to the minimum
-    // alpha that results to an empty active set of regions/sources.
-    // Input:
-    //       G: (n_cx(m_pxn_s)) a matrix that contain dynamic gain matrix i.e. 
-    //           G(lead field)x MVAR matrix A.
-    //       M: (n_cxn_t) a matrix that contain the EEG and or MEG measurements.
-    // Output:
-    //       norm_GtM: a double scaler which correspend to alpha_max = 
-    //                 norm_inf(norm_2(G^TM)).
-    //
-    * */
+    * alpha that results to an empty active set of regions/sources.
+    * Input:
+    *       G: (n_cx(m_pxn_s)) a matrix that contain dynamic gain matrix i.e. 
+    *           G(lead field)x MVAR matrix A.
+    *       M: (n_cxn_t) a matrix that contain the EEG and or MEG measurements.
+    * Output:
+    *       norm_GtM: a double scaler which correspend to alpha_max = 
+    *       norm_inf(norm_2(G^TM)).
+    */
     using namespace flens;
     using namespace std;
     double norm_GtM = 0.0;
@@ -181,7 +183,7 @@ void MxNE::Compute_Me(const Maths::DMatrix &G, const Maths::DMatrix &J,
 }
 
 double MxNE::duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,
-    Maths::DMatrix &J, Maths::DMatrix &R, double alpha) const {
+    const Maths::DMatrix &J, const Maths::DMatrix &R, double alpha) const {
     /* compute the duality gap for mixed norm estimate gap = Fp-Fd;
     // between the primal and dual functions. Check reference papers for more
     // details.
@@ -230,7 +232,7 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     using namespace flens;
     using namespace std;
     Underscore<Maths::DMatrix::IndexType> _;
-    double d_w_ii = 0, d_w_max = 0, W_ii_abs_max = 0, w_max  = 0.0;
+    double d_w_ii, d_w_max, W_ii_abs_max, w_max;
     double n_x;
     Maths::DMatrix R(n_c, n_t);
     Maths::DVector mu(n_s);
@@ -250,7 +252,8 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     for (int i=1;i<=n_s;i++)
         mu_alpha(i) = mu(i)*alpha;
     int ji;
-    for (ji = 0; ji < n_iter; ji++){
+    std::cout<<" Alpha value used: "<< alpha<<std::endl;
+    for (ji = 0; ji < n_iter; ++ji){
         w_max = 0.0;
         d_w_max = 0.0;
         for (int i = 1; i <= n_s; ++i){
@@ -266,6 +269,7 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
             if (s_!= 0.0)
                 s_t = std::max(1.0 - mu_alpha(i)/s_, 0.0);
             J(_, i) *= s_t;
+            cout<<i<<" Norm J: "<<nn << " scale "<< s_t<<endl;
             wii -= J(_, i); // wii = X^{i-1} - X^i
             d_w_ii = absmax(wii);
             W_ii_abs_max = absmax(J(_, i));

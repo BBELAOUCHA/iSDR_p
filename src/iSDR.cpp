@@ -350,8 +350,9 @@ int iSDR::iSDR_solve(Maths::DMatrix &G_o, Maths::IMatrix &SC, Maths::DMatrix &M,
         cxxblas::copy(n_t_s*n_s, &Jtmp.data()[0], 1, &J_.data()[0], 1);
         A_step_lsq(&J_.data()[0], &SC_ptr[0], mar_th, &MVAR.data()[0]);
         double EigMax = Phi_TransitionMatrix(MVAR);
-        //MVAR *= 1/(EigMax*1*(1+1e-6));
-        //EigMax = Phi_TransitionMatrix(MVAR);
+        if (EigMax > 1)
+            MVAR *= 1/(EigMax*(1+1e-6));
+        EigMax = Phi_TransitionMatrix(MVAR);
         Maths::DMatrix Gt(n_c, n_s*m_p);
         G_times_A(G_tmp, MVAR, Gt);
         //GA_removeDC(Gt);
