@@ -54,7 +54,7 @@ class MxNE {
     public:
         MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
              double d_w_tol, bool ver);
-        ~MxNE();
+        ~MxNE(){};
         int n_s;
         void Compute_Me(const Maths::DMatrix &G, const Maths::DMatrix &J,
         Maths::DMatrix &Me)const;
