@@ -2,7 +2,7 @@
 #ifndef USE_CXXLAPACK
 #define USE_CXXLAPACK
 #endif
-
+#include "Matrix.h"
 #include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
 #include <cmath>
@@ -52,22 +52,25 @@ class MxNE {
         double d_w_tol;
         bool verbose;
     public:
-        double *R;
-        double *mu;
         MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
              double d_w_tol, bool ver);
-        ~MxNE();
+        ~MxNE(){};
         int n_s;
-        void Compute_Me(const double *G, const double * J, double *Me)const;
-        int MxNE_solve(const double *M, double *G_reorder, double *J, double
-        alpha, int n_iter, double &dual_gap_, double &tol,bool initial) const;
-        void Compute_dX(const double *G_ptr, double *X, const int n_source) const;
-        void Compute_mu(const double *G) const;
-        double absmax(const double *X) const;
-        void update_r(const double *G_reorder,const double *dX,
-                      const int n_source) const;
-        double duality_gap(const double* G,const double *M, const double * J,
-                        double alpha) const;
-        void Compute_GtR(const double *G,const double* Rx, double *GtR) const;
-        double Compute_alpha_max(const double *G, const double *M) const; 
+        void Compute_Me(const Maths::DMatrix &G, const Maths::DMatrix &J,
+        Maths::DMatrix &Me)const;
+        int MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
+        Maths::DMatrix &J, double alpha, int n_iter, double &dual_gap_,
+                     double &tol, bool initial) const;
+        void Compute_dX(const Maths::DMatrix &G, const Maths::DMatrix &R,
+        Maths::DVector &X, const int n_source) const;
+        void Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const;
+        double absmax(const Maths::DVector &X) const;
+        void update_r(const Maths::DMatrix &G_reorder, const Maths::DVector &dX,
+        Maths::DMatrix &R, const int n_source) const;
+        double duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,
+        const Maths::DMatrix &J, const Maths::DMatrix &R, double alpha) const;
+        void Compute_GtR(const Maths::DMatrix &G, const Maths::DMatrix &Rx,
+        Maths::DMatrix &GtR)const;
+        double Compute_alpha_max(const Maths::DMatrix &G,
+        const Maths::DMatrix &M) const;
 };

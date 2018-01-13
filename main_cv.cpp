@@ -17,7 +17,6 @@
 using namespace flens;
 using namespace std;
 
-
 void print_args(const int argc,char* argv[]) {
     for (int i=0;i<argc;++i)
         std::cerr << argv[i] << ' ';
@@ -86,7 +85,8 @@ int main(int argc, char* argv[]){
         use_mxne = true;
     double d_w_tol=1e-7;
     ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
-    _RWMat.Read_parameters(file_path);
+    if (_RWMat.Read_parameters(file_path))
+        return 1;
     n_s = _RWMat.n_s;
     n_c = _RWMat.n_c;
     m_p = _RWMat.m_p;
@@ -113,7 +113,8 @@ int main(int argc, char* argv[]){
     Maths::IMatrix SC(n_s, n_s);
     Maths::DMatrix cv_fit_data(n_alpha, n_Kfold);
     Maths::DVector alpha_real(n_alpha);
-    _RWMat.ReadData(file_path, G_o, GA_initial, M, SC);
+    if (_RWMat.ReadData(file_path, G_o, GA_initial, M, SC))
+        return 1;
     CV_iSDR _CV_iSDR(Kfold, d_w_tol, verbose, use_mxne);
     double alpha_max = _CV_iSDR.Run_CV(M, G_o, GA_initial, SC, ALPHA, alpha_real, cv_fit_data);
     _CV_iSDR.WriteData(save_path, alpha_real, cv_fit_data, alpha_max);

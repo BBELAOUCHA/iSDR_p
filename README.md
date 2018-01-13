@@ -29,13 +29,9 @@ Where:
 
 2-HDF5
 
-3-flens
+3-FLENS
 
 4-MKL intel
-
-5- BLAS
-
-6- LAPACK
 
 
 # Cite
