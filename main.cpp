@@ -17,7 +17,7 @@ void Weight_MVAR(Maths::DMatrix &J, Maths::DVector &A){
     int n_t_s = J.numRows();
     for (int i=0;i<n_s;i++){
         cxxblas::nrm2(n_t_s, &J.data()[i*n_t_s], 1, x);
-        A(i+1) = x;
+        A(i+1) = x; 
     }
 }
 
