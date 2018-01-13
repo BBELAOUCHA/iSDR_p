@@ -1,10 +1,4 @@
 #include "iSDR.h"
-//#include <cxxstd/iostream.h>
-//#include <iostream>
-//#include <stdio.h>
-//#include <ctime>
-//#include <time.h>
-#include "Matrix.h"
 ////============================================================================
 ////============================================================================
 /////
@@ -59,7 +53,6 @@ iSDR::iSDR(int n_sources, int n_sensors, int Mar_model, int n_samples,
     std::vector<double> Re {0, 0, 0};
     return;
 }
-iSDR::~iSDR() { }
 void iSDR::Reorder_G(const Maths::DMatrix &GA, Maths::DMatrix &G_reorder)const{
     // reorder GxA from [GxA1,..,GxAp] to [GA1|s=1,..,GAp|s=1, .., GA1|s=n,..,
     //                                                                  GAp|s=n]
@@ -68,34 +61,33 @@ void iSDR::Reorder_G(const Maths::DMatrix &GA, Maths::DMatrix &G_reorder)const{
     // Output:
     //       G_reorder (n_c x (n_s x m_p)):  reordered GA
     using namespace flens;
-    //typedef GeMatrix<FullStorage<double> >   GeMatrix;
     typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
-    for(int y = 0;y < n_s; y++)
-        for (int x = 0; x < m_p; x++){
+    for(int y = 0;y < n_s; y++){
+        for (int x = 0; x < m_p; x++)
             G_reorder(_, y*m_p+x+1) = GA(_, x*n_s+y+1);
-            //for(int i = 0; i < n_c; i++)
-            //   G_reorder.data()[i + (y*m_p + x)* n_c] = GA.data()[i + (y + x*n_s)*n_c];
-        }
+    }
 }
 
-void iSDR::Reduce_G(const double *G, Maths::DMatrix &G_n, std::vector<int> ind)const{
+void iSDR::Reduce_G(const double *G, Maths::DMatrix &G_n,
+    std::vector<int> &ind)const{
     // n_s_i number of active sources
     // G (n_c x n_s)   ----->  G_n (n_c x n_s_i)
     // Input:
     //       G (n_c x (n_s x p)): G*A
-    //       ind (1x n_s_i): vector containg the number of active sources
+    //       ind (1x n_s_i): vector containing the number of active sources
     // Output:
     //        G_n (n_c x n_s_i): gain matrix columns that correspends to active
     //                           sources.
     //        ind (1xn_s_i): vector containing label of active sources
     for (unsigned int i=0; i < ind.size(); ++i){
-        int x = ind[i];
+        const int x = ind[i];
         cxxblas::copy(n_c, &G[x*n_c], 1, &G_n.data()[i*n_c], 1);
     }
 }
 
-void iSDR::Reduce_SC(const int *SC, Maths::IMatrix &SC_n, std::vector<int> ind)const{
+void iSDR::Reduce_SC(const int *SC, Maths::IMatrix &SC_n,
+    std::vector<int> &ind)const{
     // reduce the strucural connectivity matrix by considering only active
     // sources
     // Input:
@@ -103,12 +95,12 @@ void iSDR::Reduce_SC(const int *SC, Maths::IMatrix &SC_n, std::vector<int> ind)c
     // Output:
     //       SC_n (n_s_i x n_s_i): reduced structural connectivity matrix
     //       ind (1 x n_s_i): vector containing active sources.
-    int si = ind.size();
+    const int si = ind.size();
     for (int i=0;i<si; ++i){
-        int x = ind[i];
+        const int x = ind[i];
         for (int j=0;j<si; ++j){
-            int y = ind[j];
-            SC_n.data()[i*si+j] = SC[x*n_s + y];
+            const int y = ind[j];
+            SC_n.data()[i*si + j] = SC[x*n_s + y];
         }
     }
 }
@@ -122,7 +114,7 @@ void iSDR::G_times_A(const Maths::DMatrix &G, const Maths::DMatrix &A,
     //                      eeg/meg sensor space.
     //       A (n_sx(n_sxm_p)): MVAR coefficients.
     // Output:
-    //       GA_reorder (n_c x (n_sx m_p)): matrix containg GxA reordered.
+    //       GA_reorder (n_c x (n_sx m_p)): matrix containing GxA reordered.
     using namespace flens;
     typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
@@ -149,7 +141,7 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
     using namespace std;
     typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
-    int n_x = n_t_s - 2*m_p;
+    const int n_x = n_t_s - 2*m_p;
     for (int source = 0; source < n_s; ++source){
         std::vector<int> ind_X;
         for (int j=0; j < n_s; ++j){
@@ -196,16 +188,12 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
             for (int q=1;q<=m_p;++q)
                 solution(q) = y(q);
         }
-        /*double max_z = 0;
-        for (int q=1;q<=ixy;++q){
-            double qz = std::abs(solution(q));
-            if (qz > max_z){
-                max_z = qz; 
-            }
-        }
-        
-        double threshold = tol*max_z;
-        * */
+        double w_max = 0;
+        for (int q=1;q<=m_p*n_connect;++q){
+			if (solution(q) > w_max)
+				w_max = solution(q);
+		}
+        solution *= 1/w_max;
         for (int j=0;j<m_p; ++j){
             int block = j*n_s*n_s;
             for (int k=0;k<n_connect; ++k){
@@ -215,6 +203,7 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
                 VAR[source+s*n_s + block] = solution(k+j*n_connect + 1);
             }
         }
+        ind_X.clear();
     }
 }
 
@@ -245,9 +234,9 @@ void iSDR::Depth_comp(Maths::DMatrix &GA) const {
 std::vector<int> iSDR::Zero_non_zero(const Maths::DMatrix &S)const{
     // Get active sources
     // Input:
-    //       S (n_t_s x n_s): the matrix containg brain activity.
+    //       S (n_t_s x n_s): the matrix containing brain activity.
     // Output:
-    //       ind_x : vector containg the label of active sources.
+    //       ind_x : vector containing the label of active sources.
     std::vector<int> ind_x;
     for(int i = 0; i < n_s; ++i){
         double ix;
@@ -288,8 +277,9 @@ int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
     cxxblas::copy(n_c*n_s, &G_o.data()[0], 1, &G_o_ptr[0], 1);
     cxxblas::copy(n_s*n_s, &SC.data()[0], 1, &SC_ptr[0], 1);
     MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, verbose);
+    double alpha_max = 0.0;
     if (not with_alpha){
-        double alpha_max = _MxNE.Compute_alpha_max(Gx, M);
+        alpha_max = _MxNE.Compute_alpha_max(Gx, M);
         alpha_max *= 0.01;
         alpha *= alpha_max;
     }
@@ -302,8 +292,10 @@ int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
     Maths::DMatrix Jtmp(n_t_s, n_s);
     double * GA_i_ = new double [n_c*n_s*m_p];
     cxxblas::copy(n_c*n_s*m_p, &Gx.data()[0], 1, &GA_i_[0], 1);
+    //cxxblas::scal(n_c*n_s*m_p, 1.0/alpha_max, &GA_i_[0], 1);
     Jtmp = J;
     for (int ii = 0; ii < n_isdr; ii++){
+		MxNE _MxNE_(n_s, n_c, m_p, n_t, d_w_tol, verbose);
         v2.clear();
         dual_gap_= 0.0;
         tol = 0.0;
@@ -311,7 +303,7 @@ int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
         cxxblas::copy(n_c*n_s*m_p, &GA_i_[0], 1, &GA_i.data()[0], 1);
         Maths::DMatrix J_i(n_t_s, n_s);
         cxxblas::copy(n_t_s*n_s, &Jtmp.data()[0], 1, &J_i.data()[0], 1);
-        _MxNE.MxNE_solve(M, GA_i, J_i, alpha, n_mxne, dual_gap_, tol, initial);
+        int conv = _MxNE_.MxNE_solve(M, GA_i, J_i, alpha, n_mxne, dual_gap_, tol, initial);
         std::vector<int> ind_x;
         ind_x = Zero_non_zero(J_i);
         int n_s_x = ind_x.size();
@@ -325,13 +317,13 @@ int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
             J(_, _(1, n_s)) = J_i;
             n_s = n_s_x;
             if (verbose)
-                printf("Same active set (%d) is detected in 2 successive iterations.\n", n_s);
+                printf("Same active set (%d) in 2 successive iters.\n", n_s);
             break;
         }
         if (n_s_x == 0) {
             n_s = 0;
-            if (verbose)
-                printf("No active source. You may decrease alpha = %2e \n", alpha);
+            if ((verbose) && (conv != -1))
+                printf("No active source. Decrease alpha = %2e \n", alpha);
             break;
         }
         Jtmp = 0;
@@ -352,19 +344,14 @@ int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
         cxxblas::copy(n_t_s*n_s, &Jtmp.data()[0], 1, &J_.data()[0], 1);
         A_step_lsq(&J_.data()[0], &SC_ptr[0], mar_th, &MVAR.data()[0]);
         double EigMax = Phi_TransitionMatrix(MVAR);
-        //if (EigMax > 1)
-        //    MVAR *= 1/(EigMax*(1+1e-6));
-        //EigMax = Phi_TransitionMatrix(MVAR);
         Maths::DMatrix Gt(n_c, n_s*m_p);
         G_times_A(G_tmp, MVAR, Gt);
-        //GA_removeDC(Gt);
-        //Depth_comp(Gt);
         cxxblas::copy(n_c*n_s*m_p, &Gt.data()[0], 1, &GA_i_[0], 1);
         cxxblas::copy(n_s*n_s*m_p, &MVAR.data()[0], 1, &Acoef.data()[0], 1);
         cxxblas::copy(n_s, &v1[0], 1, &Active.data()[0], 1);
-        _MxNE.n_s = n_s;
+        _MxNE_.n_s = n_s;
         Maths::DMatrix Me(n_c, n_t);
-        _MxNE.Compute_Me(Gt, Jtmp, Me);
+        _MxNE_.Compute_Me(Gt, Jtmp, Me);
         Me -= M;
         cxxblas::nrm2(n_t*n_c, &Me.data()[0], 1, n_Me);
         if (verbose){
