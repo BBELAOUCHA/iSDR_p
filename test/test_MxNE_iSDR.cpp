@@ -16,7 +16,7 @@ using namespace Maths;
 double Asum_x(double *a, double *b, int x){
     double asum_x = 0.0;
     for (int i =0;i<x;i++)
-        asum_x += std::abs(a[i] - b[i]);
+        asum_x += std::abs(a[i] - b[i]); 
     return asum_x;
 }
 int test_Compute_mu(){
