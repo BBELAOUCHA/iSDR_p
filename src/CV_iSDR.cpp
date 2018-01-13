@@ -45,44 +45,44 @@ void CV_iSDR::printProgress (double percentage){
 }
 
 double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
-    const Maths::DMatrix &GA_initial, const Maths::IMatrix &SC, const Maths::DVector &ALPHA,
-    Maths::DVector &alpha_real, Maths::DMatrix &cv_fit_data){
+    const Maths::DMatrix &GA_initial, const Maths::IMatrix &SC,
+    const Maths::DVector &ALPHA, Maths::DVector &alpha_real,
+    Maths::DMatrix &cv_fit_data){
     using namespace flens;
     typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
-    int n_alpha = alpha_real.length();
-    int n_c = M.numRows();
-    int n_s = SC.numRows();
-    int n_t = M.numCols();
-    int m_p = (int) GA_initial.numCols()/n_s;
-    int n_t_s = 0;
-    n_t_s = n_t + m_p - 1;
-    int n_iter_mxne = 10000;
-    int n_iter_iSDR = 100;
-    int n_Kfold = cv_fit_data.numCols();
-    double mvar_th = 1e-3;
-    int block = n_c / Kfold;
+    const int n_alpha = alpha_real.length();
+    const int n_c = M.numRows();
+    const int n_s = SC.numRows();
+    const int n_t = M.numCols();
+    const int m_p = (int) GA_initial.numCols()/n_s;
+    const int n_t_s = n_t + m_p - 1;
+    const int n_iter_mxne = 10000;
+    const int n_iter_iSDR = 100;
+    const int n_Kfold = cv_fit_data.numCols();
+    const double mvar_th = 1e-3;
+    const int block = n_c / Kfold;
     iSDR _iSDR(n_s, n_c, m_p, n_t, 1.0, n_iter_mxne, n_iter_iSDR, d_w_tol,
     mvar_th, verbose);
     Maths::DMatrix GA_reorder(n_c, n_s*m_p);
     _iSDR.Reorder_G(GA_initial, GA_reorder);
     MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, verbose);
-    double alpha_max = _MxNE.Compute_alpha_max(GA_reorder, M);
+    const double alpha_max = _MxNE.Compute_alpha_max(GA_reorder, M);
     for (int x=1;x<=n_alpha;x++)
         alpha_real(x) = 0.01*alpha_max*ALPHA(x);
-    int n_cpu = omp_get_num_procs();
-    int x, r_s;
+    const int n_cpu = omp_get_num_procs();
     double m_norm;
     cxxblas::nrm2(n_t*n_c, &M.data()[0], 1, m_norm);
     m_norm *= m_norm/n_c;
     std::random_device rd;
     std::mt19937 generator(rd());
     int iter_i = 0;
+    int x, r_s;
     #pragma omp parallel for default(shared) private(r_s, x) collapse(2) \
     num_threads(n_cpu)
     for (r_s = 1; r_s<=n_Kfold; ++r_s){
         for (x = 1; x <= n_alpha ; ++x){
-            double alpha = alpha_real(x);
+            const double alpha = alpha_real(x);
             std::vector<int> sensor_list(n_c);
             std::iota(sensor_list.begin(), sensor_list.end(),0);
             std::shuffle(sensor_list.begin(),sensor_list.end(),generator);
@@ -111,9 +111,9 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
                 }
                 iSDR _iSDR_(n_s, set_i, m_p, n_t, alpha, n_iter_mxne,
                 n_iter_iSDR, d_w_tol, mvar_th, false);
-                int n_s_e = _iSDR_.iSDR_solve(G_on, SC, Mn, GA_n, J, Acoef,
-                            Active, use_mxne, true);
-                Maths::DMatrix  Mcomp(set, n_t);
+                const int n_s_e = _iSDR_.iSDR_solve(G_on, SC, Mn, GA_n, J,
+                    Acoef, Active, use_mxne, true);
+                Maths::DMatrix  Mcomp(set, n_t); 
                 for (int k =0;k<set;k++)
                     Mcomp(k+1, _) = M(*(fold+k)+1, _);
                 double cv_k;
@@ -195,17 +195,17 @@ int CV_iSDR::WriteData(const char *file_path, const Maths::DVector &alpha,
     size_t dims2[2] = {(unsigned int)n_Kfold, (unsigned int)n_alpha};
     mat = Mat_Create(file_path, NULL);
     if(mat != NULL){
-        matvar = Mat_VarCreate("Alpha",MAT_C_DOUBLE,MAT_T_DOUBLE,1, dim1d,
-        &vec1,0);
-        Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
+        matvar = Mat_VarCreate("Alpha", MAT_C_DOUBLE, MAT_T_DOUBLE, 1, dim1d,
+        &vec1, 0);
+        Mat_VarWrite(mat, matvar, MAT_COMPRESSION_NONE);
         Mat_VarFree(matvar);
-        matvar = Mat_VarCreate("CV data fit", MAT_C_DOUBLE, MAT_T_DOUBLE,2,
-        dims2, &mat1,0);
-        Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
+        matvar = Mat_VarCreate("CV data fit", MAT_C_DOUBLE, MAT_T_DOUBLE, 2,
+        dims2, &mat1, 0);
+        Mat_VarWrite(mat, matvar, MAT_COMPRESSION_NONE);
         Mat_VarFree(matvar);
-        matvar = Mat_VarCreate("Alpha max",MAT_C_DOUBLE,MAT_T_DOUBLE,1, dim2d,
+        matvar = Mat_VarCreate("Alpha max", MAT_C_DOUBLE, MAT_T_DOUBLE,1, dim2d,
         &sca1,0);
-        Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
+        Mat_VarWrite(mat, matvar, MAT_COMPRESSION_NONE);
         Mat_VarFree(matvar);
         Mat_Close(mat);
     }
