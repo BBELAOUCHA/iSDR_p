@@ -1,5 +1,4 @@
 #include "MxNE.h"
-//#include <omp.h>
 #include "Matrix.h"
 ////============================================================================
 ////============================================================================
@@ -43,14 +42,11 @@ MxNE::MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
     this-> d_w_tol= d_w_tol;
     this-> verbose = ver;
 }
-
-MxNE::~MxNE(){
-    }
 double MxNE::absmax(const Maths::DVector &X) const {
     // compute max(abs(X)) for i in [1, length(dX)]
     double si = X(1);
     for (int i = 2;i <= n_t_s; ++i){
-        double s = std::fabs(X(i));
+        double s = std::abs(X(i));
         if (s > si)
             si = s;
     }
@@ -61,40 +57,48 @@ void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
     /* compute the gradient step mu for each block coordinate i.e. Source
        mu = ||G_s||_F^{-1}
     */
-    int mp2 = m_p*m_p;
+    //const int mp2 = m_p*m_p;
     using namespace flens;
     using namespace std;
     Underscore<Maths::DMatrix::IndexType> _;
     for(int i = 0;i < n_s; ++i){
-        Maths::DMatrix X(m_p, m_p);
-        Maths::DMatrix Xz(n_c, m_p);
-        Maths::DMatrix Xw(n_c, m_p);
-        Xz = G(_, _(i*m_p+1, m_p*(i+1)));
-        Xw = G(_, _(i*m_p+1, m_p*(i+1)));
-        X = transpose(Xz)*Xw;
-        mu.data()[i] = 0.0;
-        double x = 0.0;
-        for (int k = 0; k < mp2; k++)
-            x += X.data()[k]*X.data()[k];
+		double x = 0.0;
+		Maths::DMatrix X(m_p, m_p);
+		Maths::DMatrix Xz(n_c, m_p);
+		Maths::DMatrix Xw(n_c, m_p);
+		Xz = G(_, _(i*m_p+1, m_p*(i+1)));
+		Xw = G(_, _(i*m_p+1, m_p*(i+1)));
+		X = transpose(Xz)*Xw;
+		int n = m_p;
+		Maths::DMatrix   VL(n, n), VR(n, n);
+		Maths::DVector   wr(n), wi(n);
+		Maths::DVector   work;
+		lapack::ev(true, true, X, wr, wi, VL, VR, work);
+		mu.data()[i] = 0.0;
+		for (int q=1;q<=m_p;q++){
+			if (std::fabs(wr(q)) > x)
+				x=std::sqrt(wr(q)*wr(q)+wi(q)*wi(q));
+		}
         if (x != 0.0)
-            mu.data()[i] = 1.0/x;
+            mu.data()[i] = 1.0/(x);
         else
             printf("\nSilent source detected (%d) i.e. columns of G =0.0", i);
     }
 }
 
-void MxNE::Compute_dX(const Maths::DMatrix &G, const Maths::DMatrix &R, Maths::DVector &X,
-    const int n_source) const {
+void MxNE::Compute_dX(const Maths::DMatrix &G, const Maths::DMatrix &R,
+    Maths::DVector &X, const int n_source) const {
     /* compute the update of X i.e. X^{i+1} = X^{i} + mu dX for source with an 
     * indice n_source
     * where dX = G^T|_n_source x R;
     * Input:
-    *       G: (n_c x (m_p x n_s)) a matrix containg the dynamic lead field matrix
+    *       G: (n_c x (m_p x n_s)) a matrix containing the dynamic lead field
+    *           matrix
     *       R: (n_c x n_t) a matrix containing the residual between the MEG/EEG 
     *           measurements and the reconstructed one.
     *       n_source: the source index 
     * Output:
-    *       dX: (n_t_s) a vector containg GtR that correspends to n_source.
+    *       dX: (n_t_s) a vector containing GtR that correspends to n_source.
     */
     using namespace flens;
     Underscore<Maths::DMatrix::IndexType> _;
@@ -136,13 +140,14 @@ void MxNE::Compute_GtR(const Maths::DMatrix &G, const Maths::DMatrix &Rx,
     GtR = transpose(Rx)*G;
 }
 
-double MxNE::Compute_alpha_max(const Maths::DMatrix &G, const Maths::DMatrix &M) const{
+double MxNE::Compute_alpha_max(const Maths::DMatrix &G,
+    const Maths::DMatrix &M) const{
     /* a function used to compute the alpha_max which correspend to the minimum
     * alpha that results to an empty active set of regions/sources.
     * Input:
-    *       G: (n_cx(m_pxn_s)) a matrix that contain dynamic gain matrix i.e. 
+    *       G: (n_cx(m_pxn_s)) a matrix that contains dynamic gain matrix i.e. 
     *           G(lead field)x MVAR matrix A.
-    *       M: (n_cxn_t) a matrix that contain the EEG and or MEG measurements.
+    *       M: (n_cxn_t) a matrix that contains the EEG and or MEG measurements.
     * Output:
     *       norm_GtM: a double scaler which correspend to alpha_max = 
     *       norm_inf(norm_2(G^TM)).
@@ -232,11 +237,10 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     using namespace flens;
     using namespace std;
     Underscore<Maths::DMatrix::IndexType> _;
-    double d_w_ii, d_w_max, W_ii_abs_max, w_max;
-    double n_x;
     Maths::DMatrix R(n_c, n_t);
     Maths::DVector mu(n_s);
     R = M;
+    double n_x;
     cxxblas::nrm2(n_t*n_c, &M.data()[0], 1, n_x);
     Compute_mu(GA, mu);
     tol = d_w_tol*n_x;
@@ -249,28 +253,34 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
         R -= Me;
     }
     Maths::DVector mu_alpha(n_s);
-    for (int i=1;i<=n_s;i++)
-        mu_alpha(i) = mu(i)*alpha;
+    mu_alpha = mu*alpha;
     int ji;
     for (ji = 0; ji < n_iter; ++ji){
+        double d_w_ii, d_w_max, W_ii_abs_max, w_max;
         w_max = 0.0;
         d_w_max = 0.0;
         for (int i = 1; i <= n_s; ++i){
             Maths::DVector dX(n_t_s);
             Maths::DVector wii(n_t_s);
+            Maths::DVector J_tmp(n_t_s);
             wii = J(_, i);
             Compute_dX(GA, R, dX, i-1);
-            J(_, i) += mu(i)*dX;
-            double nn;
+            J_tmp = mu(i)*dX;
+			double nn;
             cxxblas::nrm2(n_t_s, &J.data()[(i-1)*n_t_s], 1, nn);
-            double s_t = 0.0;
-            double s_ = std::max(nn, mu_alpha(i));
-            if (s_!= 0.0)
-                s_t = std::max(1.0 - mu_alpha(i)/s_, 0.0);
-            J(_, i) *= s_t;
-            wii -= J(_, i); // wii = X^{i-1} - X^i
+            if (nn > 0)
+               J_tmp += J(_, i);
+            cxxblas::nrm2(n_t_s, &J_tmp.data()[0], 1, nn);
+            if (nn <= mu_alpha(i))
+				J_tmp = 0;
+			else{
+				double shrink = (1.0 - mu_alpha(i)/nn);
+				J_tmp *= shrink;
+			}
+            wii -= J_tmp; // wii = X^{i-1} - X^i
+            J(_, i) = J_tmp;
             d_w_ii = absmax(wii);
-            W_ii_abs_max = absmax(J(_, i));
+            W_ii_abs_max = absmax(J_tmp);
             if (d_w_ii != 0.0)
                 update_r(GA, wii, R, i-1);
             if (d_w_ii > d_w_max)
@@ -278,6 +288,12 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
             if (W_ii_abs_max > w_max)
                 w_max = W_ii_abs_max;
         }
+		if (w_max > 1){
+			J = 0;
+			printf("\n MxNE did not converge, unstable results %.2e\n", w_max);
+			return -1;
+		}
+			
         if ((w_max == 0.0) || (d_w_max / w_max <= d_w_tol) || (ji == n_iter-1)){
             dual_gap_ = duality_gap(GA, M, J, R, alpha);
             if (dual_gap_ <= tol)
@@ -295,5 +311,3 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     }
     return ji+1;
 }
-
-
