@@ -272,11 +272,11 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
                J_tmp += J(_, i);
             cxxblas::nrm2(n_t_s, &J_tmp.data()[0], 1, nn);
             if (nn <= mu_alpha(i))
-				J_tmp = 0;
-			else{
-				double shrink = (1.0 - mu_alpha(i)/nn);
-				J_tmp *= shrink;
-			}
+		J_tmp = 0;
+	    else{
+		double shrink = (1.0 - mu_alpha(i)/nn);
+		J_tmp *= shrink;
+	    }
             wii -= J_tmp; // wii = X^{i-1} - X^i
             J(_, i) = J_tmp;
             d_w_ii = absmax(wii);
@@ -288,11 +288,11 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
             if (W_ii_abs_max > w_max)
                 w_max = W_ii_abs_max;
         }
-		if (w_max > 1){
-			J = 0;
-			printf("\n MxNE did not converge, unstable results %.2e\n", w_max);
-			return -1;
-		}
+	if (w_max > 1){
+	    J = 0;
+	     printf("\n MxNE did not converge, unstable results %.2e\n", w_max);
+	     return -1;
+	}
 			
         if ((w_max == 0.0) || (d_w_max / w_max <= d_w_tol) || (ji == n_iter-1)){
             dual_gap_ = duality_gap(GA, M, J, R, alpha);
