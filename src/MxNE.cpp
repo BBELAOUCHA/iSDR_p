@@ -62,23 +62,23 @@ void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
     using namespace std;
     Underscore<Maths::DMatrix::IndexType> _;
     for(int i = 0;i < n_s; ++i){
-	double x = 0.0;
-	Maths::DMatrix X(m_p, m_p);
-	Maths::DMatrix Xz(n_c, m_p);
-	Maths::DMatrix Xw(n_c, m_p);
-	Xz = G(_, _(i*m_p+1, m_p*(i+1)));
-	Xw = G(_, _(i*m_p+1, m_p*(i+1)));
-	X = transpose(Xz)*Xw;
-	int n = m_p;
-	Maths::DMatrix   VL(n, n), VR(n, n);
-	Maths::DVector   wr(n), wi(n);
-	Maths::DVector   work;
-	lapack::ev(true, true, X, wr, wi, VL, VR, work);
-	mu.data()[i] = 0.0;
-	for (int q=1;q<=m_p;q++){
-	    if (std::fabs(wr(q)) > x)
-		x=std::sqrt(wr(q)*wr(q)+wi(q)*wi(q));
-	}
+        double x = 0.0;
+        Maths::DMatrix X(m_p, m_p);
+        Maths::DMatrix Xz(n_c, m_p);
+        Maths::DMatrix Xw(n_c, m_p);
+        Xz = G(_, _(i*m_p+1, m_p*(i+1)));
+        Xw = G(_, _(i*m_p+1, m_p*(i+1)));
+        X = transpose(Xz)*Xw;
+        int n = m_p;
+        Maths::DMatrix   VL(n, n), VR(n, n);
+        Maths::DVector   wr(n), wi(n);
+        Maths::DVector   work;
+        lapack::ev(true, true, X, wr, wi, VL, VR, work);
+        mu.data()[i] = 0.0;
+        for (int q=1;q<=m_p;q++){
+            if (std::fabs(wr(q)) > x)
+                x=std::sqrt(wr(q)*wr(q)+wi(q)*wi(q));
+        }
         if (x > 0.0)
             mu.data()[i] = 1.0/(2*x);
         else
