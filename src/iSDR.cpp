@@ -356,7 +356,7 @@ int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
         cxxblas::nrm2(n_t*n_c, &Me.data()[0], 1, n_Me);
         if (verbose){
             std::cout<<"Number of active regions/sources = "<<n_s<<std::endl;
-            std::cout<<"Max Eigenvalue after norm "<< EigMax <<std::endl;
+            std::cout<<"Max Eigenvalue = "<< EigMax <<std::endl;
         }
         if ((n_Me/n_M) < M_tol){
             std::cout<<"Stop iSDR: small residual = "<<(n_Me/n_M)*100.<<" %"
