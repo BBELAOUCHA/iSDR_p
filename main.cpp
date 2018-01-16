@@ -71,14 +71,14 @@ int main(int argc, char* argv[]){
         printHelp();
         return 1;
     }
-    if(argc < 7){
+    if(argc < 8){
         printf("Missing arguments:\n");
         explain_para();
         return 1;
     }
     print_args(argc,argv);
     bool verbose = false;
-    if (atoi(argv[6]) == 1)
+    if (atoi(argv[7]) == 1)
         verbose = true; 
     int n_c = 306;
     int n_s = 600;
