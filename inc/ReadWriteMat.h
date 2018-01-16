@@ -1,12 +1,11 @@
 #pragma once
-
-#include <cxxstd/iostream.h>
+//#include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
 #include "matio.h"
 #include <cmath>
 #include <ctime>
 #include <algorithm>
-#include <omp.h>
+//#include <omp.h>
 #include <string>
 #include <vector>
 #include "Matrix.h"
@@ -23,7 +22,6 @@
 class ReadWriteMat {
 private:
 
-        
 public:
         long unsigned int n_t;
         long unsigned int n_c;
@@ -34,7 +32,6 @@ public:
         ~ReadWriteMat(){};
         int ReadData(const char *file_path, Maths::DMatrix &G_o, Maths::DMatrix &GA,
         Maths::DMatrix &R, Maths::IMatrix &SC) const;
-        int WriteData(const char *file_path, Maths::DMatrix &S, Maths::DMatrix &mvar, Maths::IVector &A, 
-                    Maths::DVector &w);
+        int WriteData(const char *file_path, Maths::DMatrix &S, Maths::DMatrix &mvar, Maths::DMatrix &mvar_n, Maths::IVector &A, Maths::DVector &w, double max_eigenvalue);
         int Read_parameters(const char *file_path);
 };
