@@ -1,4 +1,4 @@
-#include <cxxstd/iostream.h>
+//#include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
 #include "matio.h"
 #include <cmath>
@@ -16,6 +16,7 @@
 #define PBWIDTH 60
 using namespace flens;
 using namespace std;
+ 
 
 void print_args(const int argc,char* argv[]) {
     for (int i=0;i<argc;++i)
@@ -45,8 +46,7 @@ void printHelp(){
     explain_para();
 }
 
-void print_param(int n_s, int n_t, int n_c, int m_p, double alpha,
-                 double d_w_tol){
+void print_param(int n_s, int n_t, int n_c, int m_p, double alpha, double d_w_tol){
     printf(" N of sensors %d\n", n_c);
     printf(" N of sources %d\n", n_s);
     printf(" N of samples %d\n", n_t);
@@ -91,14 +91,12 @@ int main(int argc, char* argv[]){
     n_c = _RWMat.n_c;
     m_p = _RWMat.m_p;
     n_t = _RWMat.n_t;
-
     int block = n_c / Kfold;
     int n_cpu = omp_get_num_procs();
     Maths::DVector ALPHA(n_alpha);
     double alp_step = (alpha_max_ - alpha_min)/(float)n_alpha;
     for (int y=1; y<= n_alpha;y++)
         ALPHA(y) = alpha_min + (y-1)*alp_step;
-          
     if (verbose){
         std::cerr<<n_alpha <<" values of alpha in["<<alpha_min<<", "<< alpha_max_<<"]"<<std::endl;
         std::cerr<<"KFold = "<<Kfold<<std::endl;
