@@ -141,7 +141,7 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
                 fold += set;
             }
             sensor_list.clear();
-            #pragma omp atomic
+            #pragma omp atomic 
             iter_i += 1;
             error_cv_alp /= Kfold;
             cv_fit_data(x, r_s) = error_cv_alp;
@@ -179,9 +179,8 @@ int CV_iSDR::WriteData(const char *file_path, const Maths::DVector &alpha,
     double mat1[n_alpha][n_Kfold];
     double sca1[1];
     int j,i;
-    for(j=0;j<n_alpha;j++){
-      vec1[j] = alpha(j+1);
-    }
+    for(j=0;j<n_alpha;j++)
+        vec1[j] = alpha(j+1);
     for(j=0;j<n_alpha;j++){
         for(i=0;i<n_Kfold;i++)
             mat1[j][i] = cv_fit_data(j+1, i+1);
