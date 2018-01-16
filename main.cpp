@@ -1,8 +1,7 @@
-#include <cxxstd/iostream.h>
+//#include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
 #include "matio.h"
 #include <cmath>
-//#include <omp.h>
 #include <vector>
 #include "iSDR.h"
 #include "ReadWriteMat.h"
@@ -23,9 +22,9 @@ void Weight_MVAR(Maths::DMatrix &J, Maths::DVector &A){
 
 double absf(Maths::DVector &a){
     int n_s = a.length();
-    double x=std::abs(a(1));
+    double x=std::fabs(a(1));
     for (int i=2;i<=n_s;++i){
-        double z = std::abs(a(i));
+        double z = std::fabs(a(i));
         if (z > x)
             x = z;
     }
@@ -109,7 +108,7 @@ int main(int argc, char* argv[]){
     DMatrix M(n_c, n_t);
     IMatrix SC(n_s, n_s);
     bool use_mxne = false;
-    if (re_use==1)
+    if (re_use == 1)
         use_mxne = true;
     DMatrix J(n_t_s, n_s);
     DMatrix Acoef(n_s, n_s*m_p);
@@ -124,6 +123,9 @@ int main(int argc, char* argv[]){
     const char *save_path = argv[5];
     if (n_s != 0){
         DVector W(n_s);
+        DMatrix Mvar(n_s, n_s*m_p);
+        for (int x = 0; x<n_s*n_s*m_p; x++)
+            Mvar.data()[x] = Acoef.data()[x];
         Weight_MVAR(J, W);
         double w_max = absf(W);
         cxxblas::scal(n_s, 1.0/w_max, &W.data()[0], 1);
@@ -132,7 +134,7 @@ int main(int argc, char* argv[]){
             cxxblas::scal(n_s, W.data()[s], &Acoef.data()[i*n_s], 1);
         }
         _RWMat.n_s = n_s;
-        _RWMat.WriteData(save_path, J, Acoef, Active, W);
+        _RWMat.WriteData(save_path, J, Mvar, Acoef, Active, W, _iSDR.max_eigenvalue);
     }
     else{
         printf("***********************************************************\n");
