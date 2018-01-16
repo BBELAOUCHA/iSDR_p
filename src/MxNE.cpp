@@ -33,7 +33,7 @@
 ////============================================================================
 
 MxNE::MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
-           double d_w_tol, bool ver){
+    double d_w_tol, bool ver){
     this-> n_t = n_samples;
     this-> n_c = n_sensors;
     this-> n_s = n_sources;
@@ -80,7 +80,7 @@ void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
                 x=std::sqrt(wr(q)*wr(q)+wi(q)*wi(q));
         }
         if (x > 0.0)
-            mu.data()[i] = 1.0/(2*x);
+            mu.data()[i] = 1.0/(2.0*x);
         else
             printf("\nSilent source detected (%d) i.e. columns of G =0.0", i);
     }
@@ -157,7 +157,7 @@ double MxNE::Compute_alpha_max(const Maths::DMatrix &G,
     double norm_GtM = 0.0;
     Maths::DMatrix GtM(n_t, n_s*m_p);
     Compute_GtR(G, M, GtM);
-    for(int i=0;i<n_s; ++i){
+    for(int i=0;i<n_s; ++i) {
         double GtM_axis1norm;
         cxxblas::nrm2(n_t*m_p, &GtM.data()[i*n_t*m_p], 1, GtM_axis1norm);
         if (GtM_axis1norm > norm_GtM)
@@ -180,7 +180,7 @@ void MxNE::Compute_Me(const Maths::DMatrix &G, const Maths::DMatrix &J,
     Underscore<Maths::DMatrix::IndexType> _;
     Maths::DMatrix Gs(n_c, m_p);
     Me = 0;
-    for(int i=0;i<n_s; ++i){
+    for(int i=0;i<n_s; ++i) {
         Gs = G(_, _(i*m_p+1, (i + 1)*m_p));
         for(int j=1;j<=m_p; ++j)
             Me += Gs(_, j) * transpose(J(_(j, j + n_t - 1), i+1));
@@ -196,7 +196,7 @@ double MxNE::duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,
     Maths::DMatrix GtR(n_t, m_p*n_s);
     Compute_GtR(G, R, GtR);
     double norm_GtR = 0.0;
-    for (int ii =0; ii < n_s; ii++){
+    for (int ii =0; ii < n_s; ii++) {
         double GtR_axis1norm = 0.0;
         cxxblas::nrm2(n_t*m_p, &GtR.data()[ii*n_t*m_p], 1, GtR_axis1norm);
         if (GtR_axis1norm > norm_GtR)
@@ -204,12 +204,12 @@ double MxNE::duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,
     }
     double R_norm, gap, s;
     cxxblas::nrm2(n_t*n_c, &R.data()[0], 1, R_norm);
-     if (norm_GtR > alpha){
+     if (norm_GtR > alpha) {
         s =  alpha / norm_GtR;
         double A_norm = R_norm * s;
         gap = 0.5 * (R_norm * R_norm + A_norm * A_norm);
     }
-    else{
+    else {
         s = 1.0;
         gap = R_norm * R_norm;
     }
@@ -217,7 +217,7 @@ double MxNE::duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,
     cxxblas::dot(n_c*n_t, &M.data()[0], 1, &R.data()[0], 1, ry_sum);
     
     double l21_norm = 0.0;
-    for (int i =0; i<n_s; ++i){
+    for (int i =0; i<n_s; ++i) {
         double r = 0.0;
         cxxblas::nrm2(n_t_s, &J.data()[i*n_t_s], 1, r);
         l21_norm += r;
@@ -247,7 +247,7 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     dual_gap_ = 0.0;
     if (not initial)
         J = 0.0;
-    else{
+    else {
         Maths::DMatrix Me(n_c, n_t);
         Compute_Me(GA, J, Me);
         R -= Me;
@@ -255,28 +255,28 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     Maths::DVector mu_alpha(n_s);
     mu_alpha = mu*alpha;
     int ji;
-    for (ji = 0; ji < n_iter; ++ji){
+    for (ji = 0; ji < n_iter; ++ji) {
         double d_w_ii, d_w_max, W_ii_abs_max, w_max;
         w_max = 0.0;
         d_w_max = 0.0;
-        for (int i = 1; i <= n_s; ++i){
+        for (int i = 1; i <= n_s; ++i) {
             Maths::DVector dX(n_t_s);
             Maths::DVector wii(n_t_s);
             Maths::DVector J_tmp(n_t_s);
             wii = J(_, i);
             Compute_dX(GA, R, dX, i-1);
             J_tmp = mu(i)*dX;
-			double nn;
+            double nn;
             cxxblas::nrm2(n_t_s, &J.data()[(i-1)*n_t_s], 1, nn);
             if (nn > 0)
                J_tmp += J(_, i);
             cxxblas::nrm2(n_t_s, &J_tmp.data()[0], 1, nn);
             if (nn <= mu_alpha(i))
-		J_tmp = 0;
-	    else{
-		double shrink = (1.0 - mu_alpha(i)/nn);
-		J_tmp *= shrink;
-	    }
+                J_tmp = 0;
+            else {
+                double shrink = (1.0 - mu_alpha(i)/nn);
+                J_tmp *= shrink;
+            }
             wii -= J_tmp; // wii = X^{i-1} - X^i
             J(_, i) = J_tmp;
             d_w_ii = absmax(wii);
@@ -288,19 +288,18 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
             if (W_ii_abs_max > w_max)
                 w_max = W_ii_abs_max;
         }
-	if (w_max > 1){
-	    J = 0;
-	     printf("\n MxNE did not converge, unstable results %.2e\n", w_max);
-	     return -1;
-	}
-			
-        if ((w_max == 0.0) || (d_w_max / w_max <= d_w_tol) || (ji == n_iter-1)){
+        if (w_max > 1) {
+            J = 0;
+            printf("\n MxNE did not converge, unstable results %.2e\n", w_max);
+            return -1;
+        }
+        if ((w_max == 0.0) || (d_w_max / w_max <= d_w_tol) || (ji == n_iter-1)) {
             dual_gap_ = duality_gap(GA, M, J, R, alpha);
             if (dual_gap_ <= tol)
                 break;
         }
     }
-    if (verbose){
+    if (verbose) {
         if (dual_gap_ > tol)
             printf("\n Objective did not converge, you might want to increase");
         else
