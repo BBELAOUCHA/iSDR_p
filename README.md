@@ -3,8 +3,6 @@ A solver of EEG/MEG inverse problem using a multivariate auto-regressive model (
 
 [![Build Status](https://travis-ci.org/BBELAOUCHA/iSDR_p.svg?branch=master)](https://travis-ci.org/BBELAOUCHA/iSDR_p)
 
-[![codecov.io](dca2552b-b8fe-47fa-b8ca-b1e75237dc7c)]
-
 iSDR_p is a c++ package for solving the EEG/MEG inverse problem using structural/functional prior 
 on the causality between brain regions/sources.
 iSDR_p solve the following functional:
