@@ -1,0 +1,7 @@
+language: cpp
+compiler: g++
+dist: trusty
+sudo : require
+script:
+- make
+- ./test/test_MxNE_iSDR
