@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+# ignore all files in iSDR/
+iSDR/
+
+# ignore test binary
+test/test_MxNE_iSDR
+
+# ignore makefile
+Makefile
