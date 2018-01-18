@@ -51,6 +51,8 @@ United States. 2016.
 
 Belaoucha Brahim 
 
+Theodore Papadopoulo
+
 # Installation
 first modify the makefile to include the different folders of the required packages. Then compile the package:
 
