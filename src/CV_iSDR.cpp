@@ -78,8 +78,7 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
     std::mt19937 generator(rd());
     int iter_i = 0;
     int x, r_s;
-    #pragma omp parallel for default(shared) private(r_s, x) collapse(2) \
-    num_threads(n_cpu)
+    #pragma omp parallel for default(shared) private(r_s, x) collapse(2) num_threads(n_cpu)
     for (r_s = 1; r_s<=n_Kfold; ++r_s){
         for (x = 1; x <= n_alpha ; ++x){
             const double alpha = alpha_real(x);
@@ -136,8 +135,8 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
                     }
                     cxxblas::nrm2(n_t*set, &Mcomp.data()[0], 1, cv_k);
                 }
-                cv_k *= cv_k/set;
-                error_cv_alp += cv_k;
+                //cv_k *= cv_k/set;
+                error_cv_alp += cv_k*cv_k;
                 fold += set;
             }
             sensor_list.clear();
