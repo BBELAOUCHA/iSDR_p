@@ -188,18 +188,18 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
             for (int q=1;q<=m_p;++q)
                 solution(q) = y(q);
         }
-        //double w_max = 0;
-        //for (int q=1;q<=m_p*n_connect;++q){
-        //   if (std::fabs(solution(q)) > w_max)
-        //        w_max = solution(q);
-        //}
-        //solution *= 1/w_max;
+        double w_max = 0;
+        for (int q=1;q<=m_p*n_connect;++q){
+           if (std::abs(solution(q)) > w_max)
+                w_max = std::abs(solution(q));
+        }
+        solution *= 1/w_max;
         for (int j=0;j<m_p; ++j){
             int block = j*n_s*n_s;
             for (int k=0;k<n_connect; ++k){
                 int s = ind_X[k];
-                //if (std::abs(solution(k+j*n_connect + 1)) < threshold)
-                //    solution(k+j*n_connect + 1) = 0;
+                if (std::abs(solution(k+j*n_connect + 1)) < mar_th)
+                    solution(k+j*n_connect + 1) = 0;
                 VAR[source+s*n_s + block] = solution(k+j*n_connect + 1);
             }
         }
