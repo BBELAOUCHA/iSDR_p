@@ -31,9 +31,10 @@ int test_Compute_mu(){
            }
     }
     _MxNE.Compute_mu(G, mu);
+    Maths::DVector mu_cp(n_s);
+    mu_cp = 0.0833333,0.0208333,0.00925926;
     for (int i=0;i<n_s;i++){
-        double x = m_p*m_p*(n_c*(i+1)*(i+1))*(n_c*(i+1)*(i+1));
-        if (mu(i+1) != 1.0/x)
+        if (std::abs(mu(i+1)- mu_cp(i+1))>1e-4)
             return 0;
     }
     return 1;
