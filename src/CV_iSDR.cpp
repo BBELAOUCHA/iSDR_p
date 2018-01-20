@@ -78,7 +78,7 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
     std::mt19937 generator(rd());
     int iter_i = 0;
     int x, r_s;
-    #pragma omp parallel for default(shared) private(r_s, x) collapse(2) \
+    #pragma omp parallel for default(shared) schedule(dynamic) private(r_s, x) collapse(2) \
     num_threads(n_cpu)
     for (r_s = 1; r_s<=n_Kfold; ++r_s){
         for (x = 1; x <= n_alpha ; ++x){
