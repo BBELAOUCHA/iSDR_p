@@ -190,7 +190,7 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
         }
         //double w_max = 0;
         //for (int q=1;q<=m_p*n_connect;++q){
-        //   if (solution(q) > w_max)
+        //   if (std::fabs(solution(q)) > w_max)
         //        w_max = solution(q);
         //}
         //solution *= 1/w_max;
