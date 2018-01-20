@@ -198,8 +198,8 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
             int block = j*n_s*n_s;
             for (int k=0;k<n_connect; ++k){
                 int s = ind_X[k];
-                if (std::abs(solution(k+j*n_connect + 1)) < mar_th)
-                    solution(k+j*n_connect + 1) = 0;
+                //if (std::abs(solution(k+j*n_connect + 1)) < mar_th)
+                //    solution(k+j*n_connect + 1) = 0;
                 VAR[source+s*n_s + block] = solution(k+j*n_connect + 1);
             }
         }
