@@ -1,4 +1,5 @@
-#pragma once
+#ifndef READWRITEMAR
+#define READWRITEMAR
 //#include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
 #include "matio.h"
@@ -35,3 +36,4 @@ public:
         int WriteData(const char *file_path, Maths::DMatrix &S, Maths::DMatrix &mvar, Maths::DMatrix &mvar_n, Maths::IVector &A, Maths::DVector &w, double max_eigenvalue);
         int Read_parameters(const char *file_path);
 };
+#endif //READWRITEMAR

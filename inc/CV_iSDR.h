@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CV_ISDR
+#define CV_ISDR
 //#include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
 #include "MxNE.h"
@@ -38,3 +39,4 @@ class CV_iSDR {
         int WriteData(const char *file_path, const Maths::DVector &alpha, const Maths::DMatrix &cv_fit_data, double alpha_max);
         double Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o, const Maths::DMatrix &GA_initial, const Maths::IMatrix &SC, const Maths::DVector &ALPHA, Maths::DVector &alpha_real, Maths::DMatrix &cv_fit_data);
 };
+#endif //CV_ISDR

@@ -45,7 +45,7 @@ MxNE::MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
 double MxNE::absmax(const Maths::DVector &X) const {
     // compute max(abs(X)) for i in [1, length(dX)]
     double si = X(1);
-    for (int i = 2;i <= n_t_s; ++i){
+    for (int i = 2;i <= X.length(); ++i){
         double s = std::abs(X(i));
         if (s > si)
             si = s;

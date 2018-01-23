@@ -14,10 +14,10 @@ using namespace flens;
 using namespace std;
 using namespace Maths;
 double Asum_x(double *a, double *b, int x){
-    double asum_x = 0.0;
+    double a_x = 0.0;
     for (int i =0;i<x;i++)
-        asum_x += std::abs(a[i] - b[i]); 
-    return asum_x;
+        a_x += std::abs(a[i] - b[i]); 
+    return a_x;
 }
 int test_Compute_mu(){
     int n_s = 3; int n_c = 2; int m_p = 3; int n_t = 100; double d_w_tol=1e-6; 
@@ -37,6 +37,17 @@ int test_Compute_mu(){
         if (std::abs(mu(i+1)- mu_cp(i+1))>1e-4)
             return 0;
     }
+    return 1;
+}
+
+int test_MxNE_absmax(){
+    int n_s = 3; int n_c = 2; int m_p = 3; int n_t = 1; double d_w_tol=1e-6; 
+    MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, false);
+    Maths::DVector mu(n_s);
+    mu = 0.0833333,0.0208333,0.00925926;
+    double x = _MxNE.absmax(mu);
+    if (std::abs(x - 0.0833333)>d_w_tol*1e-4)
+        return 0;
     return 1;
 }
 
@@ -71,14 +82,65 @@ int test_Compute_dX(){
              X_e(j+1) = 4*(i+1);
              X_e(n_t_s-j) = 4*(i+1);
         }
-        double asum_x = Asum_x(X_c.data(), X_e.data(), n_t_s);
+        double asum_x = Asum_x(&X_c.data()[0], &X_e.data()[0], n_t_s);
         if (asum_x != 0.0)
            return 0;
         std::fill(&X_c.data()[0], &X_c.data()[n_t_s], 0.0);
     }
     return 1; 
 }
+int test_Compute_GtR(){
+    int n_s = 3; int n_c = 2; int m_p = 3; int n_t = 100; double d_w_tol=1e-6; 
+    MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, false);
+    Maths::DVector mu(n_s);
+    Maths::DMatrix G(n_c, n_s*m_p);
+    Maths::DMatrix R(n_c, n_t);
+    Maths::DMatrix GtR(n_t, n_s*m_p);
+    G = 0.5;
+    R = 1;
+    _MxNE.Compute_GtR(G, R, GtR);
+    for (int j=0;j<m_p*n_s*n_t;j++){
+        if (GtR.data()[j] != n_c*0.5)
+            return 0;
+    }
+    return 1;
+}
 
+int test_Compute_alpha_max(){
+    int n_s = 3; int n_c = 2; int m_p = 3; int n_t = 100; double d_w_tol=1e-6; 
+    MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, false);
+    Maths::DVector mu(n_s);
+    Maths::DMatrix G(n_c, n_s*m_p);
+    Maths::DMatrix R(n_c, n_t);
+    G = 1;
+    R = 1;
+    double alpha_max = _MxNE.Compute_alpha_max(G, R);
+    if (std::abs(alpha_max - n_c*std::sqrt(n_t*m_p)) > d_w_tol*1e-3)
+            return 0;
+    return 1;
+}
+
+int test_Compute_Me(){
+    int n_s = 3; int n_c = 3; int m_p = 2; int n_t = 10; double d_w_tol=1e-6; 
+    MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, false);
+    Maths::DVector mu(n_s);
+    Maths::DMatrix G(n_c, n_s*m_p);
+    Maths::DMatrix M(n_c, n_t);
+    Maths::DMatrix Me(n_c, n_t);
+    Maths::DMatrix J(n_t+m_p-1, n_s);
+    J = 1;
+    M = m_p;
+    for (int j=0;j<n_c;j++){
+        G(j+1, j+1) = 1;
+        G(j+1, n_c+j+1) = 1;
+    }
+
+    _MxNE.Compute_Me(G, J, Me);
+    double x = Asum_x(&M.data()[0], &Me.data()[0], n_t*n_c);
+    if (x > 0.0)
+        return 0;
+    return 1;
+}
 
 int test_update_r(){
     int n_s = 3; int n_c = 2; int m_p = 2; int n_t = 10; double d_w_tol=1e-6;
@@ -100,7 +162,7 @@ int test_update_r(){
     _MxNE.update_r(G, X_i, R, 0);
     _MxNE.Compute_dX(G, R, X_i_1, 0);
     X_i_2(1) = 1;X_i_2(n_t_s) = 1;
-    if (Asum_x(X_i_1.data(), X_i_2.data(), n_t_s) != 0.0)
+    if (Asum_x(&X_i_1.data()[0], &X_i_2.data()[0], n_t_s) != 0.0)
         return 0;
     return 1;
 }
@@ -114,18 +176,18 @@ int test_duality_gap(){
     Maths::DMatrix G(n_c, n_s*m_p); Maths::DMatrix J(n_t_s, n_s);
     double alpha = 1e-3;
     for(int j=0;j<n_s; ++j){
-           for (int i =0; i<n_c; ++i){
-               for(int k=0;k<m_p;k++)
+        for (int i =0; i<n_c; ++i){
+            for(int k=0;k<m_p;k++)
                 G(i+1,  j*m_p + 1 + k) = 0.5*(j+1);
-           }
+        }
     }
     std::fill(&J.data()[0], &J.data()[n_t_s], 1.0);
     for (int l=0;l<m_p;l++){
         for (int i=0;i<n_t; i++){
             for (int j =0; j<n_c;j++){
-                 for (int k=0;k<n_s;k++){
+                for (int k=0;k<n_s;k++){
                     M(j+1, i+1) += G(j+1, k*m_p + 1 + l) * J(i+l+1, k+1);
-                 }
+                }
             }
        }
     }
@@ -133,34 +195,37 @@ int test_duality_gap(){
     gap = _MxNE.duality_gap(G, M, J, R, alpha);
     if (gap!=alpha*std::sqrt(n_t_s))
         return 0;
-    std::fill(&R.data()[0], &R.data()[n_t*n_c], 0.5);
-    gap = _MxNE.duality_gap(G, M, J, R, alpha);
-    double gap2 = 0.0;Maths::DMatrix GtR(n_s, n_t_s);
-    _MxNE.Compute_GtR(G, R, GtR);  
-    double norm_GtR = 0.0;
-    for (int ii =0; ii < n_s; ++ii){
-        double XtA_axis1norm = 0.0;
-        cxxblas::nrm2(n_t_s, &GtR.data()[0] + ii*n_t_s, 1, XtA_axis1norm);
-        if (XtA_axis1norm > norm_GtR)
-            norm_GtR = XtA_axis1norm;
-    }
-    double R_norm = 0.0;
-    cxxblas::nrm2(n_t*n_c, R.data(), 1, R_norm);
-    double con = 1.0;
-    if (norm_GtR > alpha){
-        con =  alpha / norm_GtR;
-        double A_norm = R_norm * con;
-        gap2 = 0.5 * (R_norm * R_norm + A_norm *A_norm);
-    }
-    else{
-        con = 1.0;
-        gap2 = R_norm * R_norm;
-    }
-    double ry=0.0;
-    for (int i=0;i<n_c*n_t;i++)
-        ry += M.data()[i]*R.data()[i];
-    gap2 += alpha*std::sqrt(n_t_s) -con * ry;
-    if (gap !=gap2)
+    return 1;
+}
+
+
+int test_MxNE_solve(){
+    int n_s = 3; int n_c = 3; int m_p = 1; int n_t = 10; double d_w_tol=1e-6; 
+    MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, false);
+    Maths::DVector mu(n_s);
+    Maths::DMatrix G(n_c, n_s*m_p);
+    Maths::DMatrix M(n_c, n_t);
+    Maths::DMatrix Me(n_c, n_t);
+    Maths::DMatrix J(n_t+m_p-1, n_s);
+    Maths::DMatrix Jx(n_t+m_p-1, n_s);
+    Jx = m_p;
+    M = m_p;
+    for (int j=0;j<n_c;j++)
+        G(j+1, j+1) = 1;
+    double alpha = 0.0001;
+    int n_iter = 10000;
+    double dual_gap_ = 0.0;
+    double tol = 1e-10;
+    bool initial = false;
+    _MxNE.MxNE_solve(M, G, J, alpha, n_iter,dual_gap_,tol,initial);
+    double x = Asum_x(&Jx.data()[0], &J.data()[0], n_s*(n_t+m_p-1))/(n_s*(n_t+m_p-1));
+    if (x > 1e-3)
+        return 0;
+    initial = true;
+    MxNE _MxNE2(n_s, n_c, m_p, n_t, d_w_tol, false);
+    _MxNE2.MxNE_solve(M, G, J, alpha, n_iter,dual_gap_,tol,initial);
+    x = Asum_x(&Jx.data()[0], &J.data()[0], n_s*(n_t+m_p-1))/(n_s*(n_t+m_p-1));
+    if (x > 1e-3)
         return 0;
     return 1;
 }
@@ -254,6 +319,8 @@ int test_A_step_lsq(){
     int n_s=3;int n_c=2;int m_p=2;int n_t = 100;double acceptable = 1e-2;
     typedef GeMatrix<FullStorage<double, ColMajor> > GeMatrix1;
     typedef GeMatrix<FullStorage<int, ColMajor> > GeMatrix2;
+    typedef typename Maths::DMatrix::IndexType     IndexType;
+    const Underscore<IndexType>  _;
     GeMatrix1 SC(n_s, n_s);
     int n_t_s = n_t;
     iSDR _iSDR(n_s, n_c, m_p, n_t, 0.0, 1, 1, 1e-3, 0.001, false);
@@ -262,6 +329,9 @@ int test_A_step_lsq(){
     A(1,1) = 0.47599234;A(1,2) = 0.12215775;A(2,1) = -0.12460725;
     A(2,2) = 0.46669897;A(1,1+n_s) = 0.43268679;A(1,2+n_s) = 0.24245205;
     A(2,1+n_s) = -0.24120229;A(2,2+n_s) = 0.42778779;A(3,3+n_s) = 1.0;
+    double Ax[2];
+    Ax[0] = 0.47599234;
+    Ax[1] = 0.46669897;
     GeMatrix1 S(n_t_s, n_s);
     S(1,1) = 6.15700359;S(2,1) = 5;S(1,2) = -3.64289379;S(2,2) = -5;
     S(1, 3) = 1.0;S(2, 3) = 1.0;
@@ -279,6 +349,8 @@ int test_A_step_lsq(){
     A_scon(1, 2) = 1;A_scon(2, 1) = 1;
     GeMatrix1 VAR(n_s, n_s*m_p);
     _iSDR.A_step_lsq(&S.data()[0], &A_scon.data()[0], 1e-3, &VAR.data()[0]);
+    VAR(1, _(1, n_s*m_p)) *= Ax[0];
+    VAR(2, _(1, n_s*m_p)) *= Ax[1];
     GeMatrix1 Se(n_t_s, n_s);
     Se(1,1) = 6.15700359;Se(2,1) = 5;Se(1,2) = -3.64289379;Se(2,2) = -5;
     Se(1, 3) = 1.0;Se(2, 3) = 1.0;
@@ -290,10 +362,12 @@ int test_A_step_lsq(){
             }
         }
     }
-    double asum_s = Asum_x(Se.data(),S.data(), n_s*n_t_s)/(n_s*n_t_s);
-    double asum_a = Asum_x(A.data(),VAR.data(), n_s*n_s*m_p)/(n_s*n_s*m_p);
-    if (asum_s > acceptable || asum_a>acceptable)
+    double asum_s = Asum_x(&Se.data()[0],&S.data()[0], n_s*n_t_s)/(n_s*n_t_s);
+    double asum_a = Asum_x(&A.data()[0],&VAR.data()[0], n_s*n_s*m_p)/(n_s*n_s*m_p);
+    if (asum_s > acceptable || asum_a>acceptable){
+        std::cout<<asum_s<<" "<<asum_a<<std::endl;
         return 0;
+    }
     return 1;
     }
 
@@ -319,39 +393,56 @@ int test_Zero_non_zero(){
     return 1;
 }
 
-int test_MxNE(){
-    int n_s = 5; int n_c = 3; int m_p = 1; int n_t = 100; double d_w_tol=1e-6; 
+int test_iSDR_solve(){
+    int n_s = 3; int n_c = 3; int m_p = 1; int n_t = 50; double d_w_tol=1e-6; 
     MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, false);
+    Maths::DVector mu(n_s);
     Maths::DMatrix G(n_c, n_s*m_p);
-    for (int i=1; i<= n_c; i++)
-        G(i, i) = 1.0;
-    Maths::DMatrix S(n_t + m_p -1, n_s);
-    Maths::DMatrix A(n_s, n_s);
-    int x = 1; int y= 3;
-    A(x,x) = 0.96;A(x,y) = 0.25;
-    A(y,x)=-0.25;A(y,y) = 0.95;
-    S(1,x) = 5; S(1,y) = -5;
-    for (int i=m_p+1;i<n_t+1;i++){
-        for (int j=1;j<=n_s;j++){
-             for (int k=1;k<=n_s;k++){
-                    S(i, j) += A(j, k)*S(i-1, k); 
-            }
-        }
+    Maths::IMatrix SC(n_s, n_s);
+    Maths::DMatrix M(n_c, n_t);
+    Maths::DMatrix Me(n_c, n_t);
+    Maths::DMatrix J(n_t+m_p-1, n_s);
+    Maths::DMatrix Jx(n_t+m_p-1, n_s);
+    Jx = m_p;
+    M = m_p;
+    for (int j=0;j<n_c;j++){
+        G(j+1, j+1) = 1;
+        SC(j+1, j+1) = 1;
     }
-    Maths::DMatrix M(n_c, n_t);Maths::DMatrix J(n_t + m_p -1, n_s);
-    for (int i=0;i<n_t; i++){
-        for (int j =0; j<n_c;j++){
-            for (int k=0;k<n_s;k++){
-                M(j+1, i+1) += G(j + 1, k + 1) * S(i+1, k+1);
-            }
-        }
-    }
-    double alpha = 0.0001;double dual_gap = 0;double tol = 0.0;
-    _MxNE.MxNE_solve(M, G, J, alpha, 10000, dual_gap, tol, false);
-    double re = Asum_x(&S.data()[0], &J.data()[0], n_s*(n_t+m_p-1));   
-    if (re > 1e-2)
-       return 0;
-    return 1;
+    int n_iter = 10000;
+    double dual_gap_ = 0.0;
+    double tol = 1e-10;
+    bool initial = false;
+    double alpha_max = _MxNE.Compute_alpha_max(G, M);
+    double a_per = 0.01;
+    double alpha = alpha_max*a_per/100.0;
+    _MxNE.MxNE_solve(M, G, J, alpha, n_iter,dual_gap_,tol,initial);
+    double x = Asum_x(&Jx.data()[0], &J.data()[0], n_s*(n_t+m_p-1))/(n_s*(n_t+m_p-1));
+    if (x > 1e-2)
+        return 0;
+    iSDR _iSDR(n_s, n_c, m_p, n_t, a_per, n_iter, 1, d_w_tol, 1e-6, false);
+    Maths::DMatrix Jisdr(n_t+m_p-1, n_s);
+    Maths::DMatrix Acoef(n_s, n_s);
+    Maths::IVector Active(n_s);
+    int nsx = _iSDR.iSDR_solve(G, SC, M, G, Jisdr, Acoef, Active, false, false);
+    x = Asum_x(&Jx.data()[0], &Jisdr.data()[0], n_s*(n_t+m_p-1))/(n_s*(n_t+m_p-1));
+    if (x > 1e-2 || nsx !=n_s)
+        return 0;
+    x = Asum_x(&J.data()[0], &Jisdr.data()[0], n_s*(n_t+m_p-1))/(n_s*(n_t+m_p-1));
+    if (x > 0)
+        return 0;
+    Maths::DMatrix Jwr(n_t+m_p-1, n_s);
+    _iSDR.iSDR_solve_pywrapper(&G.data()[0], &SC.data()[0], &M.data()[0], &G.data()[0], 
+         &Jwr.data()[0], &Acoef.data()[0], &Active.data()[0], false, false);
+    x = Asum_x(&Jisdr.data()[0], &Jwr.data()[0], n_s*(n_t+m_p-1))/(n_s*(n_t+m_p-1));
+    if (x > 1e-3)
+        return 0;
+    iSDR ziSDR(n_s, n_c, m_p, n_t, 100, n_iter, 5, tol, 1e-6, false);
+    Jisdr=0;
+    nsx = ziSDR.iSDR_solve(G, SC, M, G, Jisdr, Acoef, Active, false, false);
+    if (nsx > 0)
+        return 0;
+    return 1; 
 }
 
 int test_Depth_Comp(){
@@ -368,10 +459,27 @@ int test_Depth_Comp(){
     for (int i=0;i<n_s;i++){
         double n;
         cxxblas::nrm2(n_c*m_p, &GA.data()[i*n_c*m_p], 1, n);
-        if ((int)n != 1){
-            std::cout<<i<<" x "<<n<<std::endl;
+        if ( std::abs(n-1.0) > 1e-3)
             return 0;
+    }
+    return 1;
+}
+
+int test_GA_removeDC(){
+    int n_s = 2; int n_c = 2; int m_p = 2; int n_t = 100; double d_w_tol=1e-6; 
+    iSDR _iSDR(n_s, n_c, m_p, n_t, 0.0, 1, 1, d_w_tol, 0.001, false);
+    Maths::DMatrix A(n_s, n_s*m_p);
+    A = 0.432, 0.242 , 0.476, 0.122,
+        -0.241, 0.427,-0.124, 0.466;
+    _iSDR.GA_removeDC(A);
+    for (int i=0;i<n_s;++i){
+        double x = 0.0;
+        for (int j=0;j<n_c*m_p;++j){
+            x += A.data()[i*n_c*m_p+j];
         }
+        x /= (n_c*m_p);
+        if (x > d_w_tol*1e-3)
+            return 0;
     }
     return 1;
 }
@@ -393,25 +501,78 @@ int test_Phi_TransitionMatrix(){
     return 1;
 }
 
+int test_ReadParameter(){
+    int n_c = 306;
+    int n_s = 562;
+    int m_p = 3;
+    int n_t = 294;
+    int n_t_s = n_t + m_p-1;
+    const char *file_path = "./examples/S1_data_p3.mat";
+    ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
+    if (_RWMat.Read_parameters(file_path))
+        return 0;
+
+    if (n_s - _RWMat.n_s + n_c - _RWMat.n_c + m_p - _RWMat.m_p +
+     n_t - _RWMat.n_t + n_t_s - _RWMat.n_t_s != 0)
+        return 0;
+    return 1;
+}
+
+int test_ReadData(){
+    int n_c = 306;
+    int n_s = 562;
+    int m_p = 3;
+    int n_t = 294;
+    const char *file_path = "./examples/S1_data_p3.mat";
+    ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
+    if (_RWMat.Read_parameters(file_path))
+        return 0;
+    Maths::DMatrix G_o(n_c, n_s);
+    Maths::DMatrix GA(n_c, n_s*m_p);
+    Maths::DMatrix R(n_c, n_t);
+    Maths::IMatrix SC(n_s,  n_s);
+    if(_RWMat.ReadData(file_path, G_o, GA, R, SC))
+        return 0;
+    return 1;
+}
 int main(){
-    
     if (test_Compute_mu())
         printf( "MxNE.Compute_mu    ... Ok\n");
     else
         printf( "MxNE.Compute_mu    ... Failed\n");
+    if (test_MxNE_absmax())
+        printf( "MxNE.absmax        ... Ok\n");
+    else
+        printf( "MxNE.absmax    ... Failed\n");
+        
     if (test_Compute_dX())
         printf( "MxNE.Compute_dX    ... Ok\n");
     else
         printf( "MxNE.Compute_dX    ... Failed\n");
-
+    if (test_Compute_GtR())
+        printf( "MxNE.Compute_GtR   ... Ok\n");
+    else
+        printf( "MxNE.Compute_GtR   ... Failed\n");
+    if (test_Compute_alpha_max())
+        printf( "MxNE.alpha_max     ... Ok\n");
+    else
+        printf( "MxNE.alpha_max   ... Failed\n");
+    if (test_Compute_Me())
+        printf( "MxNE.Compute_Me    ... Ok\n");
+    else
+        printf( "MxNE.Compute_Me   ... Failed\n");
     if (test_update_r())
         printf( "MxNE.update_r      ... Ok\n");
     else
         printf( "MxNE.update_r      ... Failed\n");
-    //if (test_duality_gap())
-   //     printf( "MxNE.duality_gap   ... Ok\n");
-   // else
-    //    printf( "MxNE.duality_gap   ... Failed\n");
+    if (test_duality_gap())
+        printf( "MxNE.duality_gap   ... Ok\n");
+    else
+        printf( "MxNE.duality_gap   ... Failed\n");
+    if (test_MxNE_solve())
+        printf( "MxNE.MxNE_solve    ... Ok\n");
+    else
+        printf( "MxNE.MxNE_solve   ... Failed\n");
     if (test_Greorder())
         printf( "iSDR.Reorder_G     ... Ok\n");
     else
@@ -443,8 +604,24 @@ int main(){
     else
         printf( "iSDR.Depth_Comp    ... Failed\n");
     if (test_Phi_TransitionMatrix())
-        printf( "iSDR.Phi_TransitionMatrix... Ok\n");
+        printf( "iSDR.Phi_TraMatrix ... Ok\n");
     else
-        printf( "iSDR.Phi_TransitionMatrix... Failed\n");
-    return 0;
+        printf( "iSDR.Phi_TraMatrix... Failed\n");
+    if (test_GA_removeDC())
+        printf( "iSDR.GA_removeDC   ... Ok\n");
+    else
+        printf( "iSDR.GA_removeDC... Failed\n");
+    if (test_iSDR_solve())
+        printf( "iSDR.iSDR_solve    ... Ok\n");
+    else
+        printf( "iSDR.iSDR_solve    ... Failed\n");
+    if (test_ReadParameter())
+        printf( "ReadParameter      ... Ok\n");
+    else
+        printf( "ReadParameter      ... Failed\n");
+    if (test_ReadData())
+        printf( "ReadData           ... Ok\n");
+    else 
+        printf( "ReadData          ... Failed\n");
+    return 0; 
 }

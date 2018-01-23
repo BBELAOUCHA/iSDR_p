@@ -247,6 +247,24 @@ std::vector<int> iSDR::Zero_non_zero(const Maths::DMatrix &S) const {
     return ind_x;
 }
 
+void iSDR::iSDR_solve_pywrapper(double * G_o_, int * SC_, double * M_, double * G_, double *J_, double * Acoef_, int * Active_, bool initial, bool with_alpha){
+    using namespace flens;
+    Maths::DMatrix G_o(n_c, n_s);
+    Maths::IMatrix SC(n_s, n_s);
+    Maths::DMatrix M(n_c, n_t);
+    Maths::DMatrix G(n_c, n_s*m_p);
+    Maths::DMatrix J(n_t_s, n_s);
+    Maths::DMatrix Acoef(n_s, n_s*m_p);
+    Maths::IVector Active(n_s);
+    cxxblas::copy(n_c*n_s, G_o_, 1, &G_o.data()[0], 1);
+    cxxblas::copy(n_s*n_s, SC_, 1, &SC.data()[0], 1);
+    cxxblas::copy(n_c*n_t, M_, 1, &M.data()[0], 1);
+    cxxblas::copy(n_c*n_s*m_p, G_, 1, &G.data()[0], 1);
+    int nx = iSDR_solve(G_o, SC, M, G, J, Acoef, Active, initial, with_alpha);
+    cxxblas::copy(n_s*n_s*m_p, &Acoef.data()[0], 1, Acoef_, 1);
+    cxxblas::copy(nx, &Active.data()[0], 1, Active_, 1);
+    cxxblas::copy(n_s*n_t_s, &J.data()[0], 1, J_, 1);
+}
 int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
     const Maths::DMatrix &M, const Maths::DMatrix &G, Maths::DMatrix &J,
     Maths::DMatrix &Acoef, Maths::IVector &Active, bool initial,

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MXNE
+#define MXNE
 #ifndef USE_CXXLAPACK
 #define USE_CXXLAPACK
 #endif
@@ -65,3 +66,5 @@ class MxNE {
         void Compute_GtR(const Maths::DMatrix &G, const Maths::DMatrix &Rx, Maths::DMatrix &GtR)const;
         double Compute_alpha_max(const Maths::DMatrix &G, const Maths::DMatrix &M) const;
 };
+#endif //MXNE
+

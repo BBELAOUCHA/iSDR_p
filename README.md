@@ -1,6 +1,7 @@
 # iSDR_p (iterative source and dynamics reconstruction)
 A solver of EEG/MEG inverse problem using a multivariate auto-regressive model (MVAR) on the source space
 
+![Alt text](./coverage 2018-01-23 14-26-54.png "Coverage")
 
 iSDR_p is a c++ package for solving the EEG/MEG inverse problem using structural/functional prior 
 on the causality between brain regions/sources.
