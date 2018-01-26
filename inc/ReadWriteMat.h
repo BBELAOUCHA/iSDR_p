@@ -33,7 +33,8 @@ public:
         ~ReadWriteMat(){};
         int ReadData(const char *file_path, Maths::DMatrix &G_o, Maths::DMatrix &GA,
         Maths::DMatrix &R, Maths::IMatrix &SC) const;
-        int WriteData(const char *file_path, Maths::DMatrix &S, Maths::DMatrix &mvar, Maths::DMatrix &mvar_n, Maths::IVector &A, Maths::DVector &w, double max_eigenvalue);
+        int WriteData(const char *file_path, Maths::DMatrix &S, Maths::DMatrix &mvar,
+        Maths::IVector &A, Maths::DVector &w, double max_eigenvalue);
         int Read_parameters(const char *file_path);
 };
 #endif //READWRITEMAR

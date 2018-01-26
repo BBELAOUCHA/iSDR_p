@@ -19,6 +19,67 @@ double Asum_x(double *a, double *b, int x){
         a_x += std::abs(a[i] - b[i]); 
     return a_x;
 }
+int test_iSDR_results(){
+    // read data from mat file
+    const char *file_path = "./examples/S1_p1_30.mat";
+    int n_s_a = 12;
+    int n_t_s = 220;
+    Maths::DMatrix S(n_t_s, n_s_a);
+    mat_t *matfp; // use matio to read the .mat file
+    matvar_t *matvar;
+    matfp = Mat_Open(file_path, MAT_ACC_RDONLY);
+    if (matfp != NULL){
+        matvar = Mat_VarRead(matfp, "S estimate") ;
+        const double *xData = static_cast<const double*>(matvar->data);
+        for(long unsigned int y = 0;y < (long unsigned int)n_s_a; ++y){
+            for (long unsigned int x = 0; x < (long unsigned int)n_t_s; ++x)
+                S.data()[x + y*n_t_s] = xData[x + y*n_t_s]; 
+        }
+    }
+    else{
+        std::cout<<"File not found ./examples/S1_p1_30.mat"<<std::endl;
+        return 0;
+    }
+    file_path = "./examples/S1_p1_MEGT800.mat";
+    int n_s=0, n_c=0, n_t=0, m_p=0;
+    ReadWriteMat _RWMat(n_s, n_c, m_p, n_t);
+    if (_RWMat.Read_parameters(file_path))
+        return 0;
+    n_s = _RWMat.n_s;
+    n_c = _RWMat.n_c;
+    m_p = _RWMat.m_p;
+    n_t = _RWMat.n_t;
+    n_t_s = n_t + m_p - 1;
+    
+    DMatrix G_o(n_c, n_s);
+    DMatrix GA_initial(n_c, n_s*m_p);
+    DMatrix M(n_c, n_t);
+    IMatrix SC(n_s, n_s);
+    bool use_mxne = true;
+    DMatrix J(n_t_s, n_s);
+    DMatrix Acoef(n_s, n_s*m_p);
+    IVector Active(n_s);
+    DVector Wt(n_s);
+    if (_RWMat.ReadData(file_path, G_o, GA_initial, M, SC))
+        return 0;
+    double mvar_th = 1e-2;
+    double alpha = 30;
+    int n_mxne = 10000;
+    int n_isdr = 100;
+    double d_w_tol = 1e-7;
+    iSDR _iSDR(n_s, n_c, m_p, n_t, alpha, n_mxne, n_isdr, d_w_tol, mvar_th, false);
+    n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, Acoef, Active, Wt, use_mxne, false);
+    DMatrix Jx(n_t_s, n_s);
+    Underscore<Maths::DMatrix::IndexType> _;
+    Jx = J(_(1, n_t_s), _(1, n_s));
+    if (n_s != n_s_a)
+        return 0;
+    double x = Asum_x(&S.data()[0], &Jx.data()[0], n_s*n_t_s)/(n_s*n_t_s);
+    if (x>1e-18)
+        return 0;
+    return 1;
+}
+
 int test_Compute_mu(){
     int n_s = 3; int n_c = 2; int m_p = 3; int n_t = 100; double d_w_tol=1e-6; 
     MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, false);
@@ -348,7 +409,8 @@ int test_A_step_lsq(){
         A_scon(i, i) = 1;
     A_scon(1, 2) = 1;A_scon(2, 1) = 1;
     GeMatrix1 VAR(n_s, n_s*m_p);
-    _iSDR.A_step_lsq(&S.data()[0], &A_scon.data()[0], 1e-3, &VAR.data()[0]);
+    double Wt[n_s];
+    _iSDR.A_step_lsq(&S.data()[0], &A_scon.data()[0], 1e-3, &VAR.data()[0], &Wt[0]);
     VAR(1, _(1, n_s*m_p)) *= Ax[0];
     VAR(2, _(1, n_s*m_p)) *= Ax[1];
     GeMatrix1 Se(n_t_s, n_s);
@@ -424,22 +486,17 @@ int test_iSDR_solve(){
     Maths::DMatrix Jisdr(n_t+m_p-1, n_s);
     Maths::DMatrix Acoef(n_s, n_s);
     Maths::IVector Active(n_s);
-    int nsx = _iSDR.iSDR_solve(G, SC, M, G, Jisdr, Acoef, Active, false, false);
+    Maths::DVector Wt(n_s);
+    int nsx = _iSDR.iSDR_solve(G, SC, M, G, Jisdr, Acoef, Active, Wt, false, false);
     x = Asum_x(&Jx.data()[0], &Jisdr.data()[0], n_s*(n_t+m_p-1))/(n_s*(n_t+m_p-1));
     if (x > 1e-2 || nsx !=n_s)
         return 0;
     x = Asum_x(&J.data()[0], &Jisdr.data()[0], n_s*(n_t+m_p-1))/(n_s*(n_t+m_p-1));
     if (x > 0)
         return 0;
-    Maths::DMatrix Jwr(n_t+m_p-1, n_s);
-    _iSDR.iSDR_solve_pywrapper(&G.data()[0], &SC.data()[0], &M.data()[0], &G.data()[0], 
-         &Jwr.data()[0], &Acoef.data()[0], &Active.data()[0], false, false);
-    x = Asum_x(&Jisdr.data()[0], &Jwr.data()[0], n_s*(n_t+m_p-1))/(n_s*(n_t+m_p-1));
-    if (x > 1e-3)
-        return 0;
     iSDR ziSDR(n_s, n_c, m_p, n_t, 100, n_iter, 5, tol, 1e-6, false);
     Jisdr=0;
-    nsx = ziSDR.iSDR_solve(G, SC, M, G, Jisdr, Acoef, Active, false, false);
+    nsx = ziSDR.iSDR_solve(G, SC, M, G, Jisdr, Acoef, Active, Wt, false, false);
     if (nsx > 0)
         return 0;
     return 1; 
@@ -615,6 +672,10 @@ int main(){
         printf( "iSDR.iSDR_solve    ... Ok\n");
     else
         printf( "iSDR.iSDR_solve    ... Failed\n");
+    if (test_iSDR_results())
+        printf( "iSDR.iSDR_results  ... Ok\n");
+    else
+        printf( "iSDR.iSDR_results    ... Failed\n");
     if (test_ReadParameter())
         printf( "ReadParameter      ... Ok\n");
     else

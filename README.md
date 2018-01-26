@@ -3,7 +3,7 @@ A solver of EEG/MEG inverse problem using a multivariate auto-regressive model (
 
 ![picture](coverage_2018_01_23_14_26_54.png)
 
-iSDR_p is a c++ package for solving the EEG/MEG inverse problem using structural/functional prior 
+iSDR_p is a C++/Python package for solving the EEG/MEG inverse problem using structural/functional prior 
 on the causality between brain regions/sources.
 iSDR_p solve the following functional:
 
@@ -91,3 +91,5 @@ To test the iSDR_p package, you can run the test module:
 
 test_MxNE_iSDR
 
+# To use it in Python
+Now, it is possible to use iSDR in Python to reconstruct the brain activity. Go to ./python_wrapper for more details on how to use the package on python

@@ -64,6 +64,7 @@ void print_param(int n_s, int n_t, int n_c, int m_p, double alpha, double d_w_to
 }
 
 int main(int argc, char* argv[]){
+    Underscore<Maths::DMatrix::IndexType> _;
     std::string str1 ("-h");
     std::string str2 ("--help");
     if (str1.compare(argv[1]) == 0 || str2.compare(argv[1]) == 0){
@@ -113,28 +114,25 @@ int main(int argc, char* argv[]){
     DMatrix J(n_t_s, n_s);
     DMatrix Acoef(n_s, n_s*m_p);
     IVector Active(n_s);
+    DVector Wt(n_s);
     if (_RWMat.ReadData(file_path, G_o, GA_initial, M, SC))
         return 1;
     double mvar_th = 1e-2;
     iSDR _iSDR(n_s, n_c, m_p, n_t, alpha, n_iter_mxne, n_iter_iSDR,
     d_w_tol, mvar_th, verbose);
     n_s = _iSDR.iSDR_solve(G_o, SC, M, GA_initial, J, Acoef,
-    Active, use_mxne, false);
+    Active, Wt, use_mxne, false);
     const char *save_path = argv[5];
+    DVector Wt2(n_s);
+    Wt2(_(1, n_s)) = Wt(_(1, n_s));
     if (n_s != 0){
         DVector W(n_s);
+        W =  Wt(_(1, n_s));
         DMatrix Mvar(n_s, n_s*m_p);
         for (int x = 0; x<n_s*n_s*m_p; x++)
             Mvar.data()[x] = Acoef.data()[x];
-        Weight_MVAR(J, W);
-        double w_max = absf(W);
-        cxxblas::scal(n_s, 1.0/w_max, &W.data()[0], 1);
-        for (int i=0;i<n_s*m_p; i++){
-            int s = i%n_s;
-            cxxblas::scal(n_s, W.data()[s], &Acoef.data()[i*n_s], 1);
-        }
         _RWMat.n_s = n_s;
-        _RWMat.WriteData(save_path, J, Mvar, Acoef, Active, W, _iSDR.max_eigenvalue);
+        _RWMat.WriteData(save_path, J, Mvar, Active, W, _iSDR.max_eigenvalue);
     }
     else{
         printf("***********************************************************\n");

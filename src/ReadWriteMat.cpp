@@ -87,10 +87,9 @@ int ReadWriteMat::ReadData(const char *file_path, Maths::DMatrix &G_o,
 
 
 int ReadWriteMat::WriteData(const char *file_path, Maths::DMatrix &S, Maths::DMatrix &mvar,
-                Maths::DMatrix &mvar_n, Maths::IVector &A, Maths::DVector &w, double max_eigenvalue){
+                Maths::IVector &A, Maths::DVector &w, double max_eigenvalue){
     double mat1[n_s][n_t_s];
     double mat2[n_s*m_p][n_s];
-    double mat2_[n_s*m_p][n_s];
     double mat3[n_s];
     double mat4[n_s];
     unsigned int i, j;
@@ -101,7 +100,6 @@ int ReadWriteMat::WriteData(const char *file_path, Maths::DMatrix &S, Maths::DMa
     for(i=0;i<n_s * m_p;i++){
         for(j=0;j<n_s;j++){
             mat2[i][j] = mvar.data()[j + n_s*i];
-            mat2_[i][j] = mvar_n.data()[j + n_s*i];
         }
     }
     for(j=0;j<n_s;j++){
@@ -128,9 +126,6 @@ int ReadWriteMat::WriteData(const char *file_path, Maths::DMatrix &S, Maths::DMa
         Mat_VarFree(matvar);
         /* multivariate autoregresive model elements */
         matvar = Mat_VarCreate("MVAR", MAT_C_DOUBLE,MAT_T_DOUBLE,2, dims2, &mat2,0);
-        Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
-        Mat_VarFree(matvar);
-        matvar = Mat_VarCreate("MVAR normalized", MAT_C_DOUBLE,MAT_T_DOUBLE,2, dims2, &mat2_,0);
         Mat_VarWrite( mat, matvar, MAT_COMPRESSION_NONE);
         Mat_VarFree(matvar);
         /* Label of active sources/regions */
