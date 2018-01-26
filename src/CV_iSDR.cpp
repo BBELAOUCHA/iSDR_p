@@ -91,6 +91,7 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
                 Maths::DMatrix J(n_t_s, n_s);
                 Maths::DMatrix Acoef(n_s, n_s*m_p);
                 Maths::IVector Active(n_s);
+                Maths::DVector Wt(n_s);
                 std::vector<int> sensor_kfold;
                 const int set = (i!=Kfold-1) ? block : std::distance(fold,sensor_list.end());
                 std::vector<int>::iterator fold_end = fold+set;
@@ -111,7 +112,7 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
                 iSDR _iSDR_(n_s, set_i, m_p, n_t, alpha, n_iter_mxne,
                 n_iter_iSDR, d_w_tol, mvar_th, false);
                 const int n_s_e = _iSDR_.iSDR_solve(G_on, SC, Mn, GA_n, J,
-                    Acoef, Active, use_mxne, true);
+                    Acoef, Active, Wt, use_mxne, true);
                 Maths::DMatrix  Mcomp(set, n_t); 
                 for (int k =0;k<set;k++)
                     Mcomp(k+1, _) = M(*(fold+k)+1, _);
