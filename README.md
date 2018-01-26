@@ -92,4 +92,4 @@ To test the iSDR_p package, you can run the test module:
 test_MxNE_iSDR
 
 # To use it in Python
-Now, it is possible to use iSDR in Python to reconstruct the brain activity. Go to ./python_wrapper for more details 
+Now, it is possible to use iSDR in Python to reconstruct the brain activity. Go to ./python_wrapper for more details on how to use the package on python
