@@ -76,7 +76,7 @@ void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
         lapack::ev(true, true, X, wr, wi, VL, VR, work);
         mu.data()[i] = 0.0;
         for (int q=1;q<=m_p;q++){
-            if (std::fabs(wr(q)) > x)
+            if (std::sqrt(wr(q)*wr(q)+wi(q)*wi(q)) > x)
                 x=std::sqrt(wr(q)*wr(q)+wi(q)*wi(q));
         }
         if (x > 0.0)
