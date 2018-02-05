@@ -1,15 +1,13 @@
-#ifndef MXNE
-#define MXNE
+#pragma once
+
 #ifndef USE_CXXLAPACK
 #define USE_CXXLAPACK
 #endif
 #include "Matrix.h"
-//#include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
 #include <cmath>
 #include <ctime>
 #include <algorithm>
-//#include <omp.h>
 #include <string>
 #include <vector>
 ////============================================================================
@@ -45,26 +43,25 @@
 ////============================================================================
 
 class MxNE {
-    private:
-        int n_t;
-        int n_c;
-        int n_t_s;
-        int m_p;
-        double d_w_tol;
-        bool verbose;
-    public:
-        MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples, double d_w_tol, bool ver);
-        ~MxNE(){};
-        int n_s;
-        void Compute_Me(const Maths::DMatrix &G, const Maths::DMatrix &J, Maths::DMatrix &Me)const;
-        int MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA, Maths::DMatrix &J, double alpha, int n_iter, double &dual_gap_, double &tol, bool initial) const;
-        void Compute_dX(const Maths::DMatrix &G, const Maths::DMatrix &R, Maths::DVector &X, const int n_source) const;
-        void Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const;
-        double absmax(const Maths::DVector &X) const;
-        void update_r(const Maths::DMatrix &G_reorder, const Maths::DVector &dX, Maths::DMatrix &R, const int n_source) const;
-        double duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,const Maths::DMatrix &J, const Maths::DMatrix &R, double alpha) const;
-        void Compute_GtR(const Maths::DMatrix &G, const Maths::DMatrix &Rx, Maths::DMatrix &GtR)const;
-        double Compute_alpha_max(const Maths::DMatrix &G, const Maths::DMatrix &M) const;
+    int n_t;
+    int n_c;
+    int n_t_s;
+    int m_p;
+    double d_w_tol;
+    bool verbose;
+public:
+    MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples, double d_w_tol, bool ver);
+    ~MxNE(){};
+    int n_s;
+    void Compute_Me(const Maths::DMatrix &G, const Maths::DMatrix &J, Maths::DMatrix &Me)const;
+    int MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA, Maths::DMatrix &J, double alpha, int n_iter, double &dual_gap_, double &tol, bool initial) const;
+    void Compute_dX(const Maths::DMatrix &G, const Maths::DMatrix &R, Maths::DVector &X, const int n_source) const;
+    void Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const;
+    double absmax(const Maths::DVector &X) const;
+    void update_r(const Maths::DMatrix &G_reorder, const Maths::DVector &dX, Maths::DMatrix &R, const int n_source) const;
+    double duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,const Maths::DMatrix &J, const Maths::DMatrix &R, double alpha) const;
+    void Compute_GtR(const Maths::DMatrix &G, const Maths::DMatrix &Rx, Maths::DMatrix &GtR)const;
+    double Compute_alpha_max(const Maths::DMatrix &G, const Maths::DMatrix &M) const;
 };
-#endif //MXNE
+
 

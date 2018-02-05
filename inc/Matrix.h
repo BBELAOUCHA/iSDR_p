@@ -1,3 +1,5 @@
+#pragma once
+
 #include <flens/flens.cxx>
 
 namespace Maths {
