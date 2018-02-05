@@ -1,14 +1,8 @@
-#ifndef ISDR
-#define ISDR
-//#ifndef USE_CXXLAPACK
-//#define USE_CXXLAPACK
-//#endif
+#pragma once
 
-//#include <cxxstd/iostream.h>
 #include <flens/flens.cxx>
 #include "matio.h"
 #include <cmath>
-//#include <omp.h>
 #include <vector>
 #include "MxNE.h"
 #include <stdio.h>
@@ -51,34 +45,34 @@
 ////============================================================================
 
 class iSDR {
-    private:
-        int n_t;
-        int m_p;
-        //int n_t_s;
-        double mar_th;
-        double n_mxne;
-        double n_isdr;
-        double d_w_tol;
-        bool verbose;
-    public:
-        std::vector<double> Re {0,0,0};
-        int n_t_s;
-        int n_s;
-        int n_c;
-        double alpha;
-        double max_eigenvalue;
-        iSDR(int n_s, int n_c, int n_t, int p, double alpha, double n_iter_mxne, double n_iter_iSDR, double d_w_tol, double mar_th, bool ver);
-        ~iSDR(){};
-        int iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC, const Maths::DMatrix &M, const Maths::DMatrix &G,
-        Maths::DMatrix &J, Maths::DMatrix &Acoef, Maths::IVector &Active, Maths::DVector &Wt, bool initial, bool with_alpha);
-        void Reorder_G(const Maths::DMatrix &GA, Maths::DMatrix &G_reorder) const;
-        void Reduce_G(const double *G, Maths::DMatrix &G_n, std::vector<int> &ind) const;
-        void G_times_A(const Maths::DMatrix &G, const Maths::DMatrix &A, Maths::DMatrix &GA_reorder) const;
-        void Reduce_SC(const int *SC, Maths::IMatrix &SC_n, std::vector<int> &ind)const;
-        void A_step_lsq(const double * S,const int * A_scon,const double tol, double * VAR, double *Wt) const;
-        std::vector<int> Zero_non_zero(const Maths::DMatrix &S)const;
-        void GA_removeDC(Maths::DMatrix &GA) const;
-        void Depth_comp(Maths::DMatrix &GA) const;
-        double Phi_TransitionMatrix(Maths::DMatrix &MVAR) const;
+    int n_t;
+    int m_p;
+    //int n_t_s;
+    double mar_th;
+    double n_mxne;
+    double n_isdr;
+    double d_w_tol;
+    bool verbose;
+
+public:
+
+    std::vector<double> Re {0,0,0};
+    int n_t_s;
+    int n_s;
+    int n_c;
+    double alpha;
+    double max_eigenvalue;
+    iSDR(int n_s, int n_c, int n_t, int p, double alpha, double n_iter_mxne, double n_iter_iSDR, double d_w_tol, double mar_th, bool ver);
+    ~iSDR(){};
+    int iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC, const Maths::DMatrix &M, const Maths::DMatrix &G,
+    Maths::DMatrix &J, Maths::DMatrix &Acoef, Maths::IVector &Active, Maths::DVector &Wt, bool initial, bool with_alpha);
+    void Reorder_G(const Maths::DMatrix &GA, Maths::DMatrix &G_reorder) const;
+    void Reduce_G(const double *G, Maths::DMatrix &G_n, std::vector<int> &ind) const;
+    void G_times_A(const Maths::DMatrix &G, const Maths::DMatrix &A, Maths::DMatrix &GA_reorder) const;
+    void Reduce_SC(const int *SC, Maths::IMatrix &SC_n, std::vector<int> &ind)const;
+    void A_step_lsq(const double * S,const int * A_scon,const double tol, double * VAR, double *Wt) const;
+    std::vector<int> Zero_non_zero(const Maths::DMatrix &S)const;
+    void GA_removeDC(Maths::DMatrix &GA) const;
+    void Depth_comp(Maths::DMatrix &GA) const;
+    double Phi_TransitionMatrix(Maths::DMatrix &MVAR) const;
 };
-#endif //ISDR
