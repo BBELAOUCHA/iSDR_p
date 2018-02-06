@@ -255,8 +255,8 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     Maths::DVector mu_alpha(n_s);
     mu_alpha = mu*alpha;
     int ji;
+    double d_w_ii, d_w_max, W_ii_abs_max, w_max;
     for (ji = 0; ji < n_iter; ++ji) {
-        double d_w_ii, d_w_max, W_ii_abs_max, w_max;
         w_max = 0.0;
         d_w_max = 0.0;
         for (int i = 1; i <= n_s; ++i) {
