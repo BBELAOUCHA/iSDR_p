@@ -31,7 +31,7 @@
 ////
 ////============================================================================
 ////============================================================================
-
+using namespace flens;
 MxNE::MxNE(int n_sources, int n_sensors, int Mar_model, int n_samples,
     double d_w_tol, bool ver){
     this-> n_t = n_samples;
@@ -58,8 +58,6 @@ void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
        mu = ||G_s||_F^{-1}
     */
     //const int mp2 = m_p*m_p;
-    using namespace flens;
-    using namespace std;
     Underscore<Maths::DMatrix::IndexType> _;
     for(int i = 0;i < n_s; ++i){
         double x = 0.0;
@@ -68,7 +66,7 @@ void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
         Maths::DMatrix Xw(n_c, m_p);
         Xz = G(_, _(i*m_p+1, m_p*(i+1)));
         Xw = G(_, _(i*m_p+1, m_p*(i+1)));
-        X = transpose(Xz)*Xw;
+        X = transpose(Xw)*Xw;
         int n = m_p;
         Maths::DMatrix   VL(n, n), VR(n, n);
         Maths::DVector   wr(n), wi(n);
@@ -80,7 +78,7 @@ void MxNE::Compute_mu(const Maths::DMatrix &G, Maths::DVector &mu) const {
                 x=std::sqrt(wr(q)*wr(q)+wi(q)*wi(q));
         }
         if (x > 0.0)
-            mu.data()[i] = 1.0/(2.0*x);
+            mu.data()[i] = 1.0/(2*x);
         else
             printf("\nSilent source detected (%d) i.e. columns of G =0.0", i);
     }
@@ -100,15 +98,14 @@ void MxNE::Compute_dX(const Maths::DMatrix &G, const Maths::DMatrix &R,
     * Output:
     *       dX: (n_t_s) a vector containing GtR that correspends to n_source.
     */
-    using namespace flens;
     Underscore<Maths::DMatrix::IndexType> _;
     Maths::DMatrix GtR(m_p, n_t);
     Maths::DMatrix Gx(n_c, m_p);
     Gx = G(_, _(n_source*m_p+1, (n_source + 1)*m_p));
     GtR = transpose(Gx)*R;
-    for (int j = 0; j < n_t; ++j){
-        for (int k = 0;k < m_p; ++k) 
-            X.data()[k + j] += GtR(k+1, j+1);
+    for (int j = 1; j <= n_t; ++j){
+        for (int k = 1;k <= m_p; ++k) 
+            X(k + j - 1) += GtR(k, j);
     }
 }
 
@@ -116,7 +113,6 @@ void MxNE::update_r(const Maths::DMatrix &G_reorder, const Maths::DVector &dX,
     Maths::DMatrix &R, const int n_source) const {
     // recompute the residual for each updated source, s, of indice n_source
     // activation R = R + G_s * (X^{i-1} - X^i) = R = R - G_s * ( X^i - X^{i-1})
-    using namespace flens;
     Underscore<Maths::DMatrix::IndexType> _;
     Maths::DMatrix Gs(n_c, m_p);
     Gs = G_reorder(_, _(n_source*m_p+1, (n_source + 1)*m_p));
@@ -136,7 +132,6 @@ void MxNE::Compute_GtR(const Maths::DMatrix &G, const Maths::DMatrix &Rx,
     *   due to computation reason, we compute RtG = transpose(GtR);
     *   instead of G^TxR
     */
-    using namespace flens;
     GtR = transpose(Rx)*G;
 }
 
@@ -152,8 +147,6 @@ double MxNE::Compute_alpha_max(const Maths::DMatrix &G,
     *       norm_GtM: a double scaler which correspend to alpha_max = 
     *       norm_inf(norm_2(G^TM)).
     */
-    using namespace flens;
-    using namespace std;
     double norm_GtM = 0.0;
     Maths::DMatrix GtM(n_t, n_s*m_p);
     Compute_GtR(G, M, GtM);
@@ -176,7 +169,6 @@ void MxNE::Compute_Me(const Maths::DMatrix &G, const Maths::DMatrix &J,
     //   Output:
     //          Me : ((n_t x n_s)
     */
-    using namespace flens;
     Underscore<Maths::DMatrix::IndexType> _;
     Maths::DMatrix Gs(n_c, m_p);
     Me = 0;
@@ -193,15 +185,7 @@ double MxNE::duality_gap(const Maths::DMatrix &G,const Maths::DMatrix &M,
     // between the primal and dual functions. Check reference papers for more
     // details.
     */
-    Maths::DMatrix GtR(n_t, m_p*n_s);
-    Compute_GtR(G, R, GtR);
-    double norm_GtR = 0.0;
-    for (int ii =0; ii < n_s; ii++) {
-        double GtR_axis1norm = 0.0;
-        cxxblas::nrm2(n_t*m_p, &GtR.data()[ii*n_t*m_p], 1, GtR_axis1norm);
-        if (GtR_axis1norm > norm_GtR)
-            norm_GtR = GtR_axis1norm;
-    }
+    double norm_GtR = Compute_alpha_max(G,R);
     double R_norm, gap, s;
     cxxblas::nrm2(n_t*n_c, &R.data()[0], 1, R_norm);
      if (norm_GtR > alpha) {
@@ -234,8 +218,6 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     //                                                         alpha ||X||_{21}
     // check reference papers
     */
-    using namespace flens;
-    using namespace std;
     Underscore<Maths::DMatrix::IndexType> _;
     Maths::DMatrix R(n_c, n_t);
     Maths::DVector mu(n_s);
@@ -255,8 +237,8 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
     Maths::DVector mu_alpha(n_s);
     mu_alpha = mu*alpha;
     int ji;
+    double d_w_ii, d_w_max, W_ii_abs_max, w_max;
     for (ji = 0; ji < n_iter; ++ji) {
-        double d_w_ii, d_w_max, W_ii_abs_max, w_max;
         w_max = 0.0;
         d_w_max = 0.0;
         for (int i = 1; i <= n_s; ++i) {
@@ -281,7 +263,7 @@ int MxNE::MxNE_solve(const Maths::DMatrix &M, const Maths::DMatrix &GA,
             J(_, i) = J_tmp;
             d_w_ii = absmax(wii);
             W_ii_abs_max = absmax(J_tmp);
-            if (d_w_ii != 0.0)
+            if (d_w_ii > 0.0)
                 update_r(GA, wii, R, i-1);
             if (d_w_ii > d_w_max)
                 d_w_max = d_w_ii;
