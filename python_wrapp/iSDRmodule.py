@@ -21,6 +21,7 @@
 '''
 import numpy as np
 import PyiSDRcpp as pciSDR
+import time
 class iSDR:
     # an interface class to the iSDR c++ implementation
     def __init__(self, alpha=30, d_w_tol = 1e-7,n_mxne=1e4,n_iSDR=100,
@@ -59,6 +60,9 @@ class iSDR:
                 self.Active_set: indices of active sources
                 self.Weights: weights used to normalize the rows of MAR
         '''
+        if SC.shape[0] != SC.shape[1]:
+            raise ValueError('SC has to be squared matrix but {}'.format(SC.shape))
+        start_time = time.time()
         n_c, n_s = np.shape(G)
         m_p = np.shape(A)[1]/n_s
         _, n_t = np.shape(M)
@@ -81,3 +85,4 @@ class iSDR:
         self.MAR = MAR
         self.Active_set = Active_set[:n_active]
         self.Weights = Wt[:n_active]
+        self.time_execution = time.time() - start_time
