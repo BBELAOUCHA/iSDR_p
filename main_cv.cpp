@@ -109,12 +109,12 @@ int main(int argc, char* argv[]){
     Maths::DMatrix GA_initial(n_c, n_s*m_p);
     Maths::DMatrix M(n_c, n_t);
     Maths::IMatrix SC(n_s, n_s);
-    Maths::DMatrix cv_fit_data(n_alpha, n_Kfold);
+    Maths::DMatrix cv_fit_data(n_alpha, 2);
     Maths::DVector alpha_real(n_alpha);
     if (_RWMat.ReadData(file_path, G_o, GA_initial, M, SC))
         return 1;
     CV_iSDR _CV_iSDR(Kfold, d_w_tol, verbose, use_mxne);
-    double alpha_max = _CV_iSDR.Run_CV(M, G_o, GA_initial, SC, ALPHA, alpha_real, cv_fit_data);
+    double alpha_max = _CV_iSDR.Run_CV_v2(M, G_o, GA_initial, SC, ALPHA, alpha_real, cv_fit_data);
     _CV_iSDR.WriteData(save_path, alpha_real, cv_fit_data, alpha_max);
     return 0;
 }
