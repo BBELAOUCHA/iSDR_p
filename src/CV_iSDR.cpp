@@ -255,7 +255,6 @@ double CV_iSDR::Run_CV_v2(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
     #pragma omp parallel for num_threads(n_cpu)
     for (x = 1; x <= n_alpha ; ++x){
         const double alpha = alpha_real(x);
-        double error_cv_alp = 0.0;
         Maths::DMatrix J(n_t_s, n_s);
         Maths::DMatrix Acoef(n_s, n_s*m_p);
         Maths::IVector Active(n_s);
@@ -269,6 +268,8 @@ double CV_iSDR::Run_CV_v2(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
         double cv_o;
         cxxblas::nrm2(n_t*n_c, &M.data()[0], 1, cv_o);
         double cv_k=cv_o;
+        int sx = 0;
+        double J_cost = 0;
         if (n_s_e > 0){
             Maths::DMatrix Gx(n_c, n_s_e);
             for (int t =1;t<=n_s_e;++t)
@@ -286,15 +287,30 @@ double CV_iSDR::Run_CV_v2(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
                 Mn -= GA_es*transpose(X(_(p+1, n_t+p),_));
             }
             cxxblas::nrm2(n_t*n_c, &Mn.data()[0], 1, cv_k);
+            for (int s=1; s<=n_s_e; ++s){
+                double xy = 0;
+                for (int jj=1; jj<=n_t_s; ++jj)
+                     xy += J(jj, s)*J(jj, s);
+                J_cost += std::sqrt(xy);
+
+
+                for (int ss=1; ss<s; ++ss)
+                    sx += SC(Active(s), Active(ss));
+                }
+            sx = sx*2;
+            sx += n_s_e;
         }
-        error_cv_alp = 100.0*cv_k*cv_k/(cv_o*cv_o);
-        cv_fit_data(x, 1) = error_cv_alp;
-        cv_fit_data(x, 2) = 100.0*n_s_e/n_s;
+        cv_fit_data(x, 1) = cv_k  + alpha * J_cost;
+        cv_fit_data(x, 2) = n_s_e*n_s_e*m_p;
+        cv_fit_data(x, 3) = sx*m_p;
+        cv_fit_data(x, 4) = 100.0*alpha/alpha_max;
+        cv_fit_data(x, 5) = n_s_e;
         double tps = (double)iter_i/(n_alpha);
-        if (verbose)
+        if (verbose){
             printProgress(tps);
+        }
     }
-    std::cout << "A = " << cv_fit_data << std::endl;
+    //std::cout << "A = " << cv_fit_data << std::endl;
     if (verbose){
         std::cout<<"\n          ***************************************************"<<std::endl;
         std::cout<<"          ****      iSDR cross validation finished       ****"<<std::endl;

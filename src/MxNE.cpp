@@ -1,5 +1,7 @@
 #include "MxNE.h"
 #include "Matrix.h"
+#include <omp.h>
+
 ////============================================================================
 ////============================================================================
 /////
@@ -104,9 +106,24 @@ void MxNE::Compute_dX(const Maths::DMatrix &G, const Maths::DMatrix &R,
     Gx = G(_, _(n_source*m_p+1, (n_source + 1)*m_p));
     GtR = transpose(Gx)*R;
     for (int j = 1; j <= n_t; ++j){
-        for (int k = 1;k <= m_p; ++k) 
-            X(k + j - 1) += GtR(k, j);
+        for (int k = 1;k <= m_p; ++k){
+           X(k + j - 1) += GtR(k, j);
+        }
     }
+    /*
+    const int n_cpu = omp_get_num_procs();
+    #pragma omp parallel for shared(GtR, X) num_threads(n_cpu)
+    for (int j = m_p; j <= n_t; ++j){
+        for (int k = 1; k <= m_p; ++k)
+            X(j) += GtR(k, j - k + 1);
+    }
+
+    for (int i = 1; i < m_p; ++i){
+        for (int j = 1; j <= i; ++j){
+            X(i) += GtR(j, i - j + 1);
+            X(n_t + m_p - i) += GtR(m_p - j + 1, n_t - i + j);
+        }
+    }*/
 }
 
 void MxNE::update_r(const Maths::DMatrix &G_reorder, const Maths::DVector &dX,
