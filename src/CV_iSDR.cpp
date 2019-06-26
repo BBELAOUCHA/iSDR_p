@@ -116,8 +116,9 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
                 Maths::DMatrix  Mcomp(set, n_t); 
                 for (int k =0;k<set;k++)
                     Mcomp(k+1, _) = M(*(fold+k)+1, _);
-                double cv_k;
-                cxxblas::nrm2(n_t*set, &Mcomp.data()[0], 1, cv_k);
+                double cv_k=0.0;
+                double cv_o;
+                cxxblas::nrm2(n_t*set, &Mcomp.data()[0], 1, cv_o);
                 if (n_s_e > 0){
                     Maths::DMatrix Gx(set, n_s_e);
                     for (int t =1;t<=n_s_e;++t)
@@ -137,7 +138,7 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
                     cxxblas::nrm2(n_t*set, &Mcomp.data()[0], 1, cv_k);
                 }
                 //cv_k *= cv_k/set;
-                error_cv_alp += cv_k*cv_k;
+                error_cv_alp += 100.0*cv_k*cv_k/(cv_o*cv_o);
                 fold += set;
             }
             sensor_list.clear();
@@ -145,6 +146,7 @@ double CV_iSDR::Run_CV(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
             iter_i += 1;
             error_cv_alp /= Kfold;
             cv_fit_data(x, r_s) = error_cv_alp;
+            std::cout<<"\n"<< error_cv_alp <<" "<< 100.0*alpha/alpha_max<< std::endl;
             double tps = (double)iter_i/(n_alpha*n_Kfold);
             if (verbose)
                 printProgress(tps);
@@ -214,4 +216,105 @@ int CV_iSDR::WriteData(const char *file_path, const Maths::DVector &alpha,
         return 1;
     }
     return 0;
+}
+
+
+
+double CV_iSDR::Run_CV_v2(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
+    const Maths::DMatrix &GA_initial, const Maths::IMatrix &SC,
+    const Maths::DVector &ALPHA, Maths::DVector &alpha_real,
+    Maths::DMatrix &cv_fit_data){
+    using namespace flens;
+    typedef typename Maths::DMatrix::IndexType     IndexType;
+    const Underscore<IndexType>  _;
+    const int n_alpha = alpha_real.length();
+    const int n_c = M.numRows();
+    const int n_s = SC.numRows();
+    const int n_t = M.numCols();
+    const int m_p = (int) GA_initial.numCols()/n_s;
+    const int n_t_s = n_t + m_p - 1;
+    const int n_iter_mxne = 10000;
+    const int n_iter_iSDR = 100;
+    const double mvar_th = 1e-3;
+    iSDR _iSDR(n_s, n_c, m_p, n_t, 1.0, n_iter_mxne, n_iter_iSDR, d_w_tol,
+    mvar_th, verbose);
+    Maths::DMatrix GA_reorder(n_c, n_s*m_p);
+    _iSDR.Reorder_G(GA_initial, GA_reorder);
+    MxNE _MxNE(n_s, n_c, m_p, n_t, d_w_tol, verbose);
+    const double alpha_max = _MxNE.Compute_alpha_max(GA_reorder, M);
+    for (int x=1;x<=n_alpha;x++)
+        alpha_real(x) = 0.01*alpha_max*ALPHA(x);
+    const int n_cpu = omp_get_num_procs();
+    double m_norm;
+    cxxblas::nrm2(n_t*n_c, &M.data()[0], 1, m_norm);
+    m_norm *= m_norm/n_c;
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    int iter_i = 0;
+    int x;
+    #pragma omp parallel for num_threads(n_cpu)
+    for (x = 1; x <= n_alpha ; ++x){
+        const double alpha = alpha_real(x);
+        Maths::DMatrix J(n_t_s, n_s);
+        Maths::DMatrix Acoef(n_s, n_s*m_p);
+        Maths::IVector Active(n_s);
+        Maths::DVector Wt(n_s);
+        Maths::DMatrix Mn(n_c, n_t);
+        Mn = M;
+        iSDR _iSDR_(n_s, n_c, m_p, n_t, alpha, n_iter_mxne,
+        n_iter_iSDR, d_w_tol, mvar_th, false);
+        const int n_s_e = _iSDR_.iSDR_solve(G_o, SC, M, GA_initial, J,
+                                            Acoef, Active, Wt, use_mxne, true);
+        double cv_o;
+        cxxblas::nrm2(n_t*n_c, &M.data()[0], 1, cv_o);
+        double cv_k=cv_o;
+        int sx = 0;
+        double J_cost = 0;
+        if (n_s_e > 0){
+            Maths::DMatrix Gx(n_c, n_s_e);
+            for (int t =1;t<=n_s_e;++t)
+                for (int y=0;y<n_c;++y)
+                    Gx(y+1, t) = G_o(y+1, Active(t)+1);
+            Maths::DMatrix GA_es(n_c, n_s_e);
+            Maths::DMatrix X(n_t_s, n_s_e);
+            Maths::DMatrix GA(n_c, n_s_e);
+            Maths::DMatrix MAR(n_s_e, n_s_e*m_p);
+            cxxblas::copy(n_s_e*n_s_e*m_p, &Acoef.data()[0], 1,
+            &MAR.data()[0], 1);
+            X = J(_, _(1, n_s_e));
+            for (int p =0;p<m_p;p++){
+                GA_es = Gx * MAR(_, _(p*n_s_e+1, (p+1)*n_s_e));
+                Mn -= GA_es*transpose(X(_(p+1, n_t+p),_));
+            }
+            cxxblas::nrm2(n_t*n_c, &Mn.data()[0], 1, cv_k);
+            for (int s=1; s<=n_s_e; ++s){
+                double xy = 0;
+                for (int jj=1; jj<=n_t_s; ++jj)
+                     xy += J(jj, s)*J(jj, s);
+                J_cost += std::sqrt(xy);
+
+
+                for (int ss=1; ss<s; ++ss)
+                    sx += SC(Active(s), Active(ss));
+                }
+            sx = sx*2;
+            sx += n_s_e;
+        }
+        cv_fit_data(x, 1) = cv_k  + alpha * J_cost;
+        cv_fit_data(x, 2) = n_s_e*n_s_e*m_p;
+        cv_fit_data(x, 3) = sx*m_p;
+        cv_fit_data(x, 4) = 100.0*alpha/alpha_max;
+        cv_fit_data(x, 5) = n_s_e;
+        double tps = (double)iter_i/(n_alpha);
+        if (verbose){
+            printProgress(tps);
+        }
+    }
+    //std::cout << "A = " << cv_fit_data << std::endl;
+    if (verbose){
+        std::cout<<"\n          ***************************************************"<<std::endl;
+        std::cout<<"          ****      iSDR cross validation finished       ****"<<std::endl;
+        std::cout<<"          ***************************************************"<<std::endl;
+    }
+    return alpha_max;
 }

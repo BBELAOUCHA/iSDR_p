@@ -24,7 +24,7 @@ void print_args(const int argc,char* argv[]) {
     std::cerr << std::endl;
 }
 void explain_para(){
-    printf( " ./iSDR  arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8\n");
+    printf( " ./iSDR  arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9\n");
     printf( "      arg1 : path to mat file that contains MEG/EEG, G, GA\n");
     printf( "      arg2 : min value of regularization parameter >0. \n");
     printf( "      arg3 : max value of regularization parameter <100. \n");
@@ -33,6 +33,7 @@ void explain_para(){
     printf( "      arg6 : N of repetions of the KFold for each alpha_i. \n");
     printf( "      arg7 : where to save results. \n");
     printf( "      arg8 : verbose. \n");
+    printf( "      arg9 : flag to use CV or not. \n");
 }
 
 void printHelp(){
@@ -62,15 +63,18 @@ int main(int argc, char* argv[]){
         printHelp();
         return 1;
     }
-    if(argc < 9){
+    if(argc < 10){
         printf("Missing arguments:\n");
         explain_para();
         return 1;
     }
     print_args(argc, argv);
     bool verbose = false;
+    bool cv_flag = false;
     if (atoi(argv[8]) == 1)
-        verbose = true; 
+        verbose = true;
+    if (atoi(argv[9]) == 1)
+        cv_flag = true;
     int n_c=0, n_s=0, m_p=0, n_t=0;
     const char *file_path = argv[1];
     double alpha_min = atof(argv[2]);
@@ -98,7 +102,7 @@ int main(int argc, char* argv[]){
     for (int y=1; y<= n_alpha;y++)
         ALPHA(y) = alpha_min + (y-1)*alp_step;
     if (verbose){
-        std::cerr<<n_alpha <<" values of alpha in["<<alpha_min<<", "<< alpha_max_<<"]"<<std::endl;
+        std::cerr<<n_alpha <<" values of alpha in ["<<alpha_min<<", "<< alpha_max_<<"]"<<std::endl;
         std::cerr<<"KFold = "<<Kfold<<std::endl;
         std::cerr<<"Input file: "<<file_path<<std::endl;
         std::cerr<<"Output file: "<<save_path<<std::endl;
@@ -109,12 +113,20 @@ int main(int argc, char* argv[]){
     Maths::DMatrix GA_initial(n_c, n_s*m_p);
     Maths::DMatrix M(n_c, n_t);
     Maths::IMatrix SC(n_s, n_s);
-    Maths::DMatrix cv_fit_data(n_alpha, n_Kfold);
     Maths::DVector alpha_real(n_alpha);
     if (_RWMat.ReadData(file_path, G_o, GA_initial, M, SC))
         return 1;
     CV_iSDR _CV_iSDR(Kfold, d_w_tol, verbose, use_mxne);
-    double alpha_max = _CV_iSDR.Run_CV(M, G_o, GA_initial, SC, ALPHA, alpha_real, cv_fit_data);
-    _CV_iSDR.WriteData(save_path, alpha_real, cv_fit_data, alpha_max);
+    double alpha_max;
+    if (cv_flag){
+        Maths::DMatrix cv_fit_data(n_alpha, n_Kfold); // 1- column RMS 2- total possible parameters of MAR 3- only SConnected Regions
+        alpha_max = _CV_iSDR.Run_CV(M, G_o, GA_initial, SC, ALPHA, alpha_real, cv_fit_data);
+        _CV_iSDR.WriteData(save_path, alpha_real, cv_fit_data, alpha_max);
+        }
+    else{
+        Maths::DMatrix cv_fit_data(n_alpha, 5); // 1- column RMS 2- total possible parameters of MAR 3- only SConnected Regions
+        alpha_max = _CV_iSDR.Run_CV_v2(M, G_o, GA_initial, SC, ALPHA, alpha_real, cv_fit_data);
+        _CV_iSDR.WriteData(save_path, alpha_real, cv_fit_data, alpha_max);
+        }
     return 0;
 }

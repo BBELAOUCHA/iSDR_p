@@ -35,7 +35,7 @@
 ////
 ////============================================================================
 ////============================================================================
-
+using namespace flens;
 iSDR::iSDR(int n_sources, int n_sensors, int Mar_model, int n_samples,
            double alpha, double n_iter_mxne, double n_iter_iSDR, double d_w_tol, 
            double mar_th, bool ver) {
@@ -60,7 +60,6 @@ void iSDR::Reorder_G(const Maths::DMatrix &GA, Maths::DMatrix &G_reorder) const 
     //       GA (n_c x (n_s x m_p)): matrix containing Gx[A1,..,Ap]
     // Output:
     //       G_reorder (n_c x (n_s x m_p)):  reordered GA
-    using namespace flens;
     typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
     for(int y = 0;y < n_s; y++){
@@ -115,7 +114,6 @@ void iSDR::G_times_A(const Maths::DMatrix &G, const Maths::DMatrix &A,
     //       A (n_sx(n_sxm_p)): MVAR coefficients.
     // Output:
     //       GA_reorder (n_c x (n_sx m_p)): matrix containing GxA reordered.
-    using namespace flens;
     typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
     Maths::DMatrix GA(n_c, n_s);
@@ -137,8 +135,6 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
     // Output:
     //       VAR (n_sx(n_sxm_p)): matrix containing MVAR coefficients.
     // estimate results are written in VAR.
-    using namespace flens;
-    using namespace std;
     typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
     const int n_x = n_t_s - 2*m_p;
@@ -209,7 +205,6 @@ void iSDR::A_step_lsq(const double * S,const int * A_scon,const double tol,
 }
 
 void iSDR::GA_removeDC(Maths::DMatrix &GA) const {
-    using namespace flens;
     typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
     for (int i=0;i<n_s; ++i){
@@ -222,7 +217,6 @@ void iSDR::GA_removeDC(Maths::DMatrix &GA) const {
 }
 
 void iSDR::Depth_comp(Maths::DMatrix &GA) const {
-    using namespace flens;
     typedef typename Maths::DMatrix::IndexType     IndexType;
     const Underscore<IndexType>  _;
     for (int i=0;i<n_s; ++i){
@@ -264,8 +258,6 @@ int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
     //        J (n_t_s x n_s): the brain activity estimated by iSDR.
     //        Acoef (n_s x (n_s x m_p)): MVAR coefficients
     //        Active (1 x n_s): label of only active sources
-    using namespace flens;
-    using namespace std;
     Underscore<Maths::DMatrix::IndexType> _;
     std::vector<int> v1;
     for (int i = 0; i < n_s; i++)
@@ -373,8 +365,6 @@ int iSDR::iSDR_solve(const Maths::DMatrix &G_o, const Maths::IMatrix &SC,
 }
 
 double iSDR::Phi_TransitionMatrix(Maths::DMatrix &MVAR) const {
-    using namespace flens;
-    using namespace std;
     Underscore<Maths::DMatrix::IndexType> _;
     int n_col = MVAR.numCols();
     int ns = MVAR.numRows();
