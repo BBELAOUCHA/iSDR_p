@@ -260,6 +260,10 @@ double CV_iSDR::Run_CV_v2(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
         Maths::IVector Active(n_s);
         Maths::DVector Wt(n_s);
         Maths::DMatrix Mn(n_c, n_t);
+        double ngm = 0;
+        double ngs = 0;
+        cxxblas::nrm2(n_t*n_c, &M.data()[0], 1, ngm);
+        cxxblas::nrm2(n_s*n_s, &SC.data()[0], 1, ngs);
         Mn = M;
         iSDR _iSDR_(n_s, n_c, m_p, n_t, alpha, n_iter_mxne,
         n_iter_iSDR, d_w_tol, mvar_th, false);
@@ -292,19 +296,22 @@ double CV_iSDR::Run_CV_v2(const Maths::DMatrix &M, const Maths::DMatrix &G_o,
                 for (int jj=1; jj<=n_t_s; ++jj)
                      xy += J(jj, s)*J(jj, s);
                 J_cost += std::sqrt(xy);
-
-
                 for (int ss=1; ss<s; ++ss)
-                    sx += SC(Active(s), Active(ss));
+                    sx += SC(Active(s) + 1, Active(ss) + 1);
                 }
             sx = sx*2;
             sx += n_s_e;
         }
-        cv_fit_data(x, 1) = cv_k  + alpha * J_cost;
-        cv_fit_data(x, 2) = n_s_e*n_s_e*m_p;
-        cv_fit_data(x, 3) = sx*m_p;
-        cv_fit_data(x, 4) = 100.0*alpha/alpha_max;
-        cv_fit_data(x, 5) = n_s_e;
+        #pragma omp atomic 
+        iter_i += 1;
+        cv_fit_data(x, 1) = cv_k;
+        cv_fit_data(x, 2) = alpha;
+        cv_fit_data(x, 3) = J_cost;
+        cv_fit_data(x, 4) = sx*m_p;
+        cv_fit_data(x, 5) = n_s_e*n_s_e*m_p;
+        cv_fit_data(x, 6) = n_s_e;
+        cv_fit_data(x, 7) = ngm;
+        cv_fit_data(x, 8) = ngs*ngs*m_p;
         double tps = (double)iter_i/(n_alpha);
         if (verbose){
             printProgress(tps);

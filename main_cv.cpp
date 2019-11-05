@@ -100,9 +100,10 @@ int main(int argc, char* argv[]){
     Maths::DVector ALPHA(n_alpha);
     double alp_step = (alpha_max_ - alpha_min)/(float)n_alpha;
     for (int y=1; y<= n_alpha;y++)
-        ALPHA(y) = alpha_min + (y-1)*alp_step;
+        ALPHA(y) = std::pow(10, alpha_min + (y-1)*alp_step);
+    std::cerr<<ALPHA<<std::endl;
     if (verbose){
-        std::cerr<<n_alpha <<" values of alpha in ["<<alpha_min<<", "<< alpha_max_<<"]"<<std::endl;
+        std::cerr<<n_alpha <<" values of alpha in ["<<ALPHA(1)<<", "<< ALPHA(n_alpha)<<"]"<<std::endl;
         std::cerr<<"KFold = "<<Kfold<<std::endl;
         std::cerr<<"Input file: "<<file_path<<std::endl;
         std::cerr<<"Output file: "<<save_path<<std::endl;
@@ -124,7 +125,7 @@ int main(int argc, char* argv[]){
         _CV_iSDR.WriteData(save_path, alpha_real, cv_fit_data, alpha_max);
         }
     else{
-        Maths::DMatrix cv_fit_data(n_alpha, 5); // 1- column RMS 2- total possible parameters of MAR 3- only SConnected Regions
+        Maths::DMatrix cv_fit_data(n_alpha, 8); // 1- column RMS 2- total possible parameters of MAR 3- only SConnected Regions
         alpha_max = _CV_iSDR.Run_CV_v2(M, G_o, GA_initial, SC, ALPHA, alpha_real, cv_fit_data);
         _CV_iSDR.WriteData(save_path, alpha_real, cv_fit_data, alpha_max);
         }
