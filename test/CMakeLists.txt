@@ -1,0 +1,2 @@
+add_executable(test_MxNE_iSDR test_MxNE_iSDR.cpp)
+target_link_libraries(test_MxNE_iSDR iSDR)

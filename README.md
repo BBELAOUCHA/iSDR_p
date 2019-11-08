@@ -25,15 +25,13 @@ Where:
      * J_{t-i}: Brain activity (distributed source model with fixed position) at time t-i.
 
      * alpha ]0,100[: percentage of the maximum alpha_max (reg parameter which results in zero brain activity).
+
 # Requirements
 1-MATIO > 1.5.2
-
 2-HDF5
-
 3-FLENS
-
 4-MKL intel
-
+5-CMake
 
 # Cite
 
@@ -51,14 +49,14 @@ United States. 2016.
 # Author
 
 Belaoucha Brahim 
-
 Theodore Papadopoulo
 
 # Installation
-first modify the makefile to include the different folders of the required packages. Then compile the package:
 
-
-     make 
+Assuming your are in the source directory
+mkdir build
+cmake -DMKL_ROOT_DIR=YOUR_MKL_INSTALL_DIR -Dmatio_DIR=YOUR_MATIO_INSTALL_DIR -DFLENS_INCLUDE_DIR=YOUR_FLENS_INSTALL_DIR ..
+make
 
 # Details
 More details about the package input parameters can be obtained by:
